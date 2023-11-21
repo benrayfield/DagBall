@@ -1,0 +1,69 @@
+<!DOCTYPE html><html><head>
+<meta charset="UTF-8" />
+<title>TestApeB</title>
+<script src=TinyGLSL.js></script>
+<script src=Ap.js></script>
+<script>
+var onApeCode = function(){
+	let text = document.getElementById('apeCode').value;
+	if(text.startsWith('ape:')){
+		let apeCode = text.substring('ape:'.length);
+		let ape = Ap.lazyEval(apeCode);
+		document.getElementById('parsedApeCode').value = 'PARSEDAPE: '+ape;
+		let numGpuThreads = 10; //very low for testing. Normaly this is 1000 to 1000000.
+		let floatsPerGpuThread = 1;
+		let parMemIn = new Float32Array(200); //TODO put data in here. what size should it be? max size approx 1000.
+		let bigMemIn = null; //not supported yet in tinyglsl as of 2023-11-6.
+		let floatsFromGpu = ape.eval(numGpuThreads, floatsPerGpuThread, parMemIn, bigMemIn);
+		if(floatsFromGpu.length != numGpuThreads*floatsPerGpuThread){
+			throw 'floatsFromGpu.length='+floatsFromGpu.length+' != numGpuThreads*floatsPerGpuThread='+(numGpuThreads*floatsPerGpuThread);
+		}
+		console.log('floatsFromGpu=', floatsFromGpu);
+	}
+};
+</script>
+</head><body>
+	TestApeB
+	<textarea id="errorTextarea" rows=8 disabled></textarea>
+	<canvas id="canvas" width="512" height="512"></canvas><br>
+	<textarea id="apeCode" rows=30 cols=90 oninput="onApeCode();">ape: {+ (arrX locMem {33}) (arrY locMem {100}) <(five float) {f+ 2 3}> {freturn five 3 five five}}
+	</textarea><br>
+	<textarea id="parsedApeCode" rows=30 cols=90></textarea>
+	<script>
+		const canvas = document.getElementById("canvas");
+		const glslCode = document.getElementById("glslCode");
+		const errorTextarea = document.getElementById("errorTextarea");
+
+		let mouseX = 0;
+		let mouseY = 0;
+		canvas.addEventListener("mousemove", (event) => {
+			mouseX = event.offsetX;
+			mouseY = event.offsetY;
+		});
+
+		/*//start with mandelbrot
+		try {
+		  program = createProgram(vertexCode.value, glslCode.value);
+		  errorTextarea.value = "OK";
+		} catch (error) {
+		  errorTextarea.value = error.message;
+		}
+
+		//compile and link shader on textarea change
+		vertexCode.addEventListener("input", updateShader);
+		glslCode.addEventListener("input", updateShader);
+
+		function updateShader(){
+			try{
+				const newProgram = createProgram(vertexCode.value, glslCode.value);
+				program = newProgram;
+				errorTextarea.value = "OK";
+			}catch(error){
+				errorTextarea.value = error.message;
+			}
+		}*/
+	</script>
+	<br>
+	<br><br><br>
+	</body>
+</html>

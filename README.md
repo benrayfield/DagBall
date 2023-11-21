@@ -1,9 +1,6 @@
 # DagBall
 (TODO massively multiplayer) browser game of balls rolling on curvy hills and valleys that reshape themselves depending on ball positions. Its a constant (TODO sparse-dimensional) scalar-field of (TODO a multiverse of possible TinyGLSL GPU code to define new curves). U fade in new curve patterns by changing their _exists and _isInView vars 0 to 1.
 <br><br>
-Try my new GPU  language in Dagball 071 by clicking the big green circle then editing its GPU code on the left. Not reliable yet. May need to reload page often. Hold d and move mouse to move circle. Hold f and move mouse to resize circle. z adds circle <a href=https://memecombinator.io/experiments/Dagball071.html>play Dagball071 now</a><br>
-<img src="https://raw.githubusercontent.com/benrayfield/DagBall/main/doc/pic/Dagball071.jpg">
-<br><br>
 <b>Play now</b> (early experiment, no player created content, not a huge game world yet, single player):<br>
 <a href="https://memecombinator.io/experiments/Dagball009_physicsWorksTodoCreativeGameDesignOfTheEquationsAndTuning_2023-9-12-2pET.html">https://memecombinator.io/experiments/Dagball009_physicsWorksTodoCreativeGameDesignOfTheEquationsAndTuning_2023-9-12-2pET.html</a>
 <br><br>

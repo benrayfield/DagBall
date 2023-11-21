@@ -1,0 +1,37 @@
+[[
+https://twitter.com/DagBallGame/status/1718318167598993443
+
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+Dagball will have wormholes as smooth manifold. Each pixel will have 4 numbers: green blue pixbalance distance, for 2 voxels above each (x,y). Ball is on linear interpolation between 2 heightmaps. Some places ball can be at both, some only blue, some only green, gradually between
+1:25 PM · Oct 28, 2023
+View post engagements
+
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+Now
+pixel.distance is the vertical/z distance between the 2 voxels above that (x,y). The ball can only jump between the green heightmap and the blue heightmap when distance is near 0. Even if distance is near 0, ball can still be forced onto green or onto blue using pixel.pixbalance.
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+Now
+green and blue are just 2 heightmaps, like the white/gray/black heightmap dagball already has. Will just be 2 of them overlapping. Green balls roll on the green heightmap. Blue balls roll on the blue heightmap. Ball can change ball.ballbalance to be some on green some on blue.
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+Now
+The balls wont be able to jump between green and blue at that bridgelike/wormhole crossing cuz potentialEnergy will repel ball.ballbalance from being between green/blue. Will be lowest potentialEnergy at all green or all blue. pixel.distance tells where can jump/roll between
+
+
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+52s
+Since it will be a smooth manifold, the wormholes will be computed the same as everything else, as potential energy gradients.
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+Now
+Dagball will support wormholes with moving ends, of varying size, that suck or blow or neither, that have only 1 end that leads to a bubble of isolated space (a blob shaped are in 2d), that spray balls from a chaoticly moving hose, or that dont move. In turing complete patterns.
+]]
