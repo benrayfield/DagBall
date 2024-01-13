@@ -1,0 +1,15 @@
+https://twitter.com/benrayfield/status/1743813385458725346
+Lambda Rick /acc
+@benrayfield
+Dagball game state is nearly divided into on/off switches, each a json that says how it affects the game when on, like to say a ball is a certain position and velocity or to display various things in UI or custom GPU code. This is the Dagverse multiverse that will grow virally
+8:54 PM · Jan 6, 2024
+·
+15
+ Views
+View post engagements
+
+Lambda Rick /acc
+@benrayfield
+As u see here tiny amount of multiverse pieces (of possible game worlds and could expand to be any kind of apps). Will get to be so many, in so many combos, I dont even know about, 1 of design goals of opensource peer to peer is Im not legally an authority nor responsible for it
+9:29 PM · Jan 6, 2024
+View post engagements

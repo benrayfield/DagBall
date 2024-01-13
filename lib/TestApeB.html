@@ -12,9 +12,11 @@ var onApeCode = function(){
 		document.getElementById('parsedApeCode').value = 'PARSEDAPE: '+ape;
 		let numGpuThreads = 10; //very low for testing. Normaly this is 1000 to 1000000.
 		let floatsPerGpuThread = 1;
-		let parMemIn = new Float32Array(200); //TODO put data in here. what size should it be? max size approx 1000.
-		let bigMemIn = null; //not supported yet in tinyglsl as of 2023-11-6.
-		let floatsFromGpu = ape.eval(numGpuThreads, floatsPerGpuThread, parMemIn, bigMemIn);
+		//let parMemIn = new Float32Array(200); //TODO put data in here. what size should it be? max size approx 1000.
+		//let bigMemIn = null; //not supported yet in tinyglsl as of 2023-11-6.
+		ape.setThreadsFloats(numGpuThreads,floatsPerGpuThread);
+		//let floatsFromGpu = ape.eval(numGpuThreads, floatsPerGpuThread, parMemIn, bigMemIn);
+		let floatsFromGpu = ape.eval();
 		if(floatsFromGpu.length != numGpuThreads*floatsPerGpuThread){
 			throw 'floatsFromGpu.length='+floatsFromGpu.length+' != numGpuThreads*floatsPerGpuThread='+(numGpuThreads*floatsPerGpuThread);
 		}
@@ -24,11 +26,12 @@ var onApeCode = function(){
 </script>
 </head><body>
 	TestApeB
-	<textarea id="errorTextarea" rows=8 disabled></textarea>
-	<canvas id="canvas" width="512" height="512"></canvas><br>
+	<input type=button value="doApeTests" onclick="Ap.doApeTests()">
+	<textarea id="errorTextarea" rows=8 disabled></textarea><br>
 	<textarea id="apeCode" rows=30 cols=90 oninput="onApeCode();">ape: {+ (arrX locMem {33}) (arrY locMem {100}) <(five float) {f+ 2 3}> {freturn five 3 five five}}
 	</textarea><br>
 	<textarea id="parsedApeCode" rows=30 cols=90></textarea>
+	<canvas id="canvas" width="512" height="512"></canvas>
 	<script>
 		const canvas = document.getElementById("canvas");
 		const glslCode = document.getElementById("glslCode");

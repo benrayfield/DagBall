@@ -1,0 +1,19 @@
+https://twitter.com/DagBallGame/status/1728123810828652801
+Post
+See new posts
+Conversation
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+5h
+Dagball now works in most browsers in windows but not in linux or android. Not tested others. Here's what happened in ubuntu. WebGL works so can be fixed. My code: "gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, canvasWidth, canvasHeight, 0, http://gl.RED, gl.FLOAT, null);"
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+Only TinyGLSL needs to be fixed, not Ap.js or Dagball*.html. TinyGLSL is small simple javascript that calls WebGL2_GLSL code. Nothing else calls GPU https://github.com/benrayfield/DagBall/blob/main/lib/TinyGLSL.js
+
+
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+Now
+I also know WebGL(version?) works in ubuntu from my experiments with GPU.js. I use TinyGLSL instead of GPU.js since its faster when using very little memory.

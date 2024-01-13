@@ -1,0 +1,80 @@
+see "doc/pic/2024-1-4 multiverse DAG Dagverse ids.png"
+
+https://twitter.com/DagBallGame/status/1743070748481147386
+
+Thread
+See new posts
+Conversation
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+Im working on the multiverse DAG forest. All values are json. A small list, like a ball's name and y and x position and velocity (4 floats) is about 50 long so use it as it is. Bigger jsons get hashed and base64ed. By turning each of these ids on/off you can navigate multiverse.
+7:43 PM · Jan 4, 2024
+·
+16
+ Views
+View post engagements
+
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+Now
+After this redesign, at any moment, the game state of a 30 player online game will be a set of about 200 ids, some of which refer to a bigger json. The game proceeds by about 60 times per second turning on/off some of those. So it can be viewed as timeSeries in sparse dimensions.
+
+
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+Now
+These ids can contain custom GPU code that will, after handle memory fencing of pointer arithmetic in GPU, get copied to other players in same game room / namespace. If players want to agree on some rules, like "no racist speech" or whatever, u could put a "rules" var in the ids.
+
+
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+Now
+Those who dont like some set of rules or technical GPU behaviors are free to turn on/off whatever combos of ids they want. The multiverse will fork and merge with the efficiency of a billions of variables SAT solver.
+
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+Now
+There is no time variable. Some combos of ids fit together and others dont. Its more like thermodynamic time. If you run this game through a physical wormhole to the past around a grandfather paradox, in theory it should still work at low lag.
+
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+54m
+For example you might turn a$sBall5_mp1445143_mp1417797_3p4333333e30_mp021837 on which claims sBall5's y position is -.1445143, or you might turn on a$sBall5_3_4_5_73p2 which claims its 3. These might be checkboxes.
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+3m
+Making the small ids human readable, of name, position, and velocity of a ball, should allow LLMs to read a$sBall5_mp1445143_mp1417797_3p4333333e30_mp021837 and make predictions about where the balls will roll next and change that by playing the game.
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+31m
+All ids are valid javascript var names. let a$sBall5_mp1445143_mp1417797_3p4333333e30_mp021837 = .73;
+
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+Now
+The dagball_bloomtree image compression could fit small pieces of pic in an id. It could in theory do a 1048576 x 1048576 image (128gB if uncompressed) and store it in 1 byte if its all the same color, 10kB if most of it is the same color, or 400gB if its all random)
+
+
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+21s
+This might be thought of as sparse kind of RAID for data integrity also for low lag massively multiplayer painting like http://reddit.com/r/place but you can paint as much or little as you want and ur goalfunc puts same force nomatter how many pixels u paint
+en.wikipedia.org
+RAID - Wikipedia
+
+
+DagBall - 1000 dimensional hackerspace
+@DagBallGame
+·
+Now
+You could for example paint QRCodes into the black/white (2 bit color with transparency) practically endless shared 2d surface
+

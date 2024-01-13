@@ -1,0 +1,2332 @@
+<script>
+//Ben F Rayfield offers ForestCurveFit under opensource MIT license.
+
+var options = {
+
+	//TODO. as of 2023-9 these doTinyGlslTestAtBootThenExit dont work cuz modified tinyGlsl,
+	//but was working in earlier version of TinyGLSL before copied here and modified.
+	//Then copy back to TinyGLSL by itself, just the tinyGlsl var.
+	doTinyGlslTestAtBootThenExit: false,
+	//doTinyGlslTestAtBootThenExit: true,
+
+
+	//displayGpuTestAndNothingElse: false,
+	displayGpuTestAndNothingElse: true,
+
+	doRandomLossGradientInsteadOfActualGradient_toTestGraphicsSpeed: false,
+	//doRandomLossGradientInsteadOfActualGradient_toTestGraphicsSpeed: true,
+
+	useGPUIn_lossGradient: false,
+	//useGPUIn_lossGradient: true,
+	
+	do_lastRandomVal: false,
+	do_lastRandomVal: true, //experimental MathOp thats random but only set once per gradient so calculus can still be done on it.
+	lastRandomVal: 0,
+
+
+	//WARNING: tanhScale even slightly above 1 makes it more chaotic and alot easier to overfit, but also makes it more flexible cuz if tanhScale is very big it can do all possible algebra expressions.
+	//tanhScale (ts) is new var thats been 1. Raising it even slightly above 1 make ForestCurveFit alot more chaotic and overfit.
+	//I think cuz if very big, designed to with arbitrary high precision approx every possib algebra expr,
+	//like ts*tanh(pow(abs(x),y)/ts) is pow. and + * sine etc
+	//tanhScale: .7,
+	tanhScale: 1,
+	//tanhScale: 1.02,
+	//tanhScale: 1.05,
+	//tanhScale: 1.1,
+	//tanhScale: 1.2,
+	//tanhScale: 1.5,
+	//tanhScale: 3, //this, instead of 1, makes it chaotic and hard to converge.
+	//tanhScale: 10,
+	//tanhScale: 100,
+	//tanhScale: 1000,
+	displayTrainingData: true,
+	displayOutputFromY: 10, //from this to ttr.numNodes-1
+	displayOutputFromX: 10,
+	displayOutputHeight: 50, //any chosen size, but make sure it fits in displayHeight()
+	displayOutputWidth: 50,
+	decayVelocityPerLearnRate: 1.5,
+	//decayVelocityPerLearnRate: .3,
+	//decayVelocityPerLearnRate: 2.3,
+	//decayVelocityPerLearnRate: 5.3,
+	//decayVelocityPerLearnRate: 0,
+	//normRectToRadius: undefined, //undefined means dont do the norm
+	normRectToRadius: 1, //undefined means dont do the norm
+	//normRectToRadius: 3, //undefined means dont do the norm
+	//normRectToRadius: .3, //undefined means dont do the norm
+	//normRectToRadius: 7, //undefined means dont do the norm
+	//useNeuralMomentum: false,
+	useNeuralMomentum: true,
+	//learnRateFor_nextStateLearnByGradient: 0, //if 0, doesnt call it.
+	//learnRateFor_nextStateLearnByGradient: .02, //if 0, doesnt call it.
+	learnRateFor_nextStateLearnByGradient: .2, //if 0, doesnt call it.
+	//learnRateFor_nextStateLearnByGradient: .4, //if 0, doesnt call it.
+	//learnRateFor_nextStateLearnByGradient: .003, //if 0, doesnt call it.
+	//learnRateFor_nextStateLearnByGradient: .03, //if 0, doesnt call it.
+	//learnRateFor_nextStateLearnByGradient: .001, //if 0, doesnt call it.
+	//learnRateFor_nextStateLearnByGradient: .000000000001, //if 0, doesnt call it.
+	randomizeRule110StateOnce: false,
+	//randomizeRule110StateOnce: true,
+	enableRule110Physics: false,
+	//enableRule110Physics: true,
+	in_displayTtr_displayRandomGraphicsToShowWhereStuffIs: false,
+	//in_displayTtr_displayRandomGraphicsToShowWhereStuffIs: true,
+	//speed: 1,
+	speed: 10,
+	useUIControls: true, //if true, mouse paints the screen while rule110 inference etc happens. Else just the inference without user input.
+};
+
+
+//This function by itself does all the WebGL GLSL GPU stuff, other than tinyGlsl.simple(code,inFloats,outs) taking a string of GLSL code
+//which is called other places than in this var.
+const tinyGlsl = {
+	description: 'TinyGLSL (by Ben F Rayfield Y2023, opensource MIT license) is a javascript library that runs GPU code in browser using webgl2 glsl code, but only at most about 1000 floats in for efficiency (IO is the bottleneck of GPUs, so this can be alot faster than matmul in theory), 1 kernel at a time, many times in parallel, with each GPU thread returning 1 float. Use tinyGlsl.simple function to do that. On a good gaming computer it should, as of Y2023, do about 1 teraflop, in theory, TODO test. You might use it to compute 3d fractals with 1 GPU thread per pixel, or ForestCurveFit kind of neuralnet (thats my first usecase), etc. If your use cases need more inputs or multiple kernels used together, you should use glsl directly instead of this software.',
+	
+	todos: [
+		'Cache the compiled glsl program (createProgram) etc',
+		'Test speed with double loop triple loop etc',
+		'fix all webgl2/glsl memory leaks such as by gl.deleteTexture etc, or put them in tinyGlsl.caches to reuse them. but dont keep allocating more each call',
+		'Test max loop size, like in GPU.js i think it defaults to max loop size of 1000. is that inherited from GLSL?',
+		'Use this software to GPU optimize 3d mandelbrot fractal andOr raytracing of n mirror balls',
+		'Use this software to GPU optimize ForestCurveFit',
+		'Clean up unnecessary code, comments, etc in this software',
+		'Check this 1024 limit on multiple computers. it likely varies across different computers andOr implementations of webgl2. if(floatsPar.length > 1024)',
+		'fix the id var which duplicates and skips numbers if you count it from 0 to 19 (ids==20). Im trying gl_VertexID for that instead of getting it from coord.x, TODO.',
+		"put error checking back in after fix it: TODO if(correctOut != observedOut) throw 'i='+i+' correctOut='+correctOut+' observedOut='+observedOut;",
+	],
+
+	simple:
+		//(function(code, par, outs){
+			//let outsLen = typeof(outs)=='number' ? outs : outs.length;
+		(function(code, par, height, width){
+			//let outsLen = typeof(outs)=='number' ? outs : outs.length;
+			let outsLen = height*width;
+			//Code string uses these vars:
+			//par - read-only float array, the param. You only get 1 input, and its this array, so put all the params here.
+			//pars - size of par array.
+			//ret - return this float. starts as 0, in case you dont set it.
+			//id - GPU thread id, range 0 to ids-1
+			//ids - number of GPU threads. Each returns 1 float.
+			//also idy idx idh idw which define the pixel rectangle, since glsl has to do rectangle. use id and ids if you want it flattened.
+			//Code can use vec2 vec3 vec4 if for float int etc, whatever you can do in webgl glsl2 #version 300 es.
+			//To efficiently use GPU, use at least as big of outs.length as you have GPU cores.
+			//Can be more, and they will take turns, but less and some go unused. Normally this is a few hundred to a few thousand.
+			//
+			//Params:
+			//par = the input floats. Float32Array, up to size 1024 or might have to be a little smaller.
+			//outs = size of output floats, or give a Float32Array of that size to reuse.
+			/*TODO? let height;
+			let width;
+			if(outsLen > 8192){
+				height = width = Math.ceil(Math.sqrt(outsLen)); //equal or slightly more than outsLen, but GLSL has to do rectangle.
+				if(outsLen != height*width){
+					throw 'TODO allow any size up to a few million, regardless of if its a multiply of 2 integers, by dropping the few extra (maybe a Float32Array backed view of the first outsLen flaots?). outsLen='+outsLen+' height='+height+' width='+width;
+				}
+			}else{
+				height = 1;
+				width = outsLen;
+			}*/
+			let code2 =
+				`${tinyGlsl.glslVersionString}
+				precision highp float;
+				uniform vec2 mouse;
+				uniform float par[${par.length}];
+				in vec2 coord;
+				//flat in int id;
+				out vec4 fragColor;
+				void main(){
+					int pars = ${par.length}; //number of params in the par array
+					int idh = ${height}; //height in pixels
+					int idw = ${width}; //width in pixels
+					int idy = int(coord.y*float(idh)); //y position from 0 to idh-1
+					int idx = int(coord.x*float(idw)); //x position from 0 to idw-1
+					int id = idy*idh+idx; //2d pixel index in 1 int
+					int ids = idh*idw; //height*width
+					float ret = 0.;
+					//start user code
+					${code}
+					//end user code
+					fragColor = vec4(ret, 0., 0., 1.);
+				}`;
+			//reuse the Float32Array(height*width) if same size as last time
+			//TODO remove existing float array of different size from cache.
+			let arrCacheKey = 'floatsH'+height+'W'+width;
+			let outs = tinyGlsl.caches[arrCacheKey];
+			if(!outs){
+				outs = tinyGlsl.caches[arrCacheKey] = new Float32Array(height*width);
+			}
+			return tinyGlsl.internalGLSL_disorganizedTODO(code2, par, outs, height, width);
+		}),
+		
+	webglType: 'webgl2', //If you change this from 'webgl2' to 'webgl', some features wont be there and it will break.
+	
+	glslVersionString: '#version 300 es',
+		
+	caches: {},
+
+	//returns the last value returned by lazyVal() or reuses it if exists for same key.
+	cache: function(key, lazyVal){
+		let val = tinyGlsl.caches[key];
+		if(val === undefined){
+			val = tinyGlsl.caches[key] = lazyVal();
+		}
+		return val;
+	},
+	
+	internalGLSL_disorganizedTODO:
+		(function(glslCode, floatsPar, floatsOutOrOutputSize, canvasHeight, canvasWidth){
+			if(canvasHeight < 1 || canvasHeight > 8192) throw 'canvasHeight='+canvasHeight;
+			if(canvasWidth < 1 || canvasWidth > 8192) throw 'canvasWidth='+canvasWidth;
+			console.log('internalGLSL_disorganizedTODO code=\n'+glslCode);
+			//reads glslCode. reads floatsPar. writes floatsOutOrOutputSize or reads floatsOutOrOutputSize as a number to make new Float32Array to return.
+			//runs floatsOut number of GPU threads that return 1 float each.
+			//FIXME? floatsPar.length <= 1024 or the limit might be a little less than that or may vary across computers.
+			//FIXME remove the coord and mouse arrays, and rename other vars, since im going to use this tool for a variety of things.
+			if(floatsPar.length > 1024){
+				throw 'floatsPar.length is too big: '+floatsPar.length;
+			}
+			let floatsOut = typeof(floatsOutOrOutputSize)=='number' ? (new Float32Array(floatsOutOrOutputSize)) : floatsOutOrOutputSize;
+
+			//let canvasHeight = 512;
+			//let canvasWidth = 512;
+			//let canvasHeight = 1;
+			//let canvasWidth = 801;
+			//let canvasWidth = floatsOut.length;
+
+			//const canvas = document.getElementById("canvas");
+			
+			/*
+			//let caches = tinyGlsl.caches || (window.caches = {});
+			let cacheKey = 'glslCanvasH'+canvasHeight+'W'+canvasWidth;
+			let canvas = tinyGlsl.caches[cacheKey];
+			if(!canvas){
+				canvas = tinyGlsl.caches[cacheKey] = document.createElement("canvas");
+				canvas.setAttribute("height", ''+canvasHeight);
+				canvas.setAttribute("width", ''+canvasWidth);
+				tinyGlsl.caches.gl = canvas.getContext(tinyGlsl.webglType);
+			}
+			let gl = tinyGlsl.caches.gl;
+			if(!gl) throw 'No gl';
+			*/
+			let canvas = tinyGlsl.cache('glslCanvasH'+canvasHeight+'W'+canvasWidth, function(){
+				let c = document.createElement("canvas");
+				c.setAttribute("height", ''+canvasHeight);
+				c.setAttribute("width", ''+canvasWidth);
+				return c;
+			});
+			let gl = tinyGlsl.cache('gl_'+tinyGlsl.webglType, function(){
+				let gl = canvas.getContext(tinyGlsl.webglType);
+				if (!gl.getExtension('EXT_color_buffer_float')){
+					throw 'EXT_color_buffer_float not supported so cant store just 1 float per pixel';
+				}
+				return gl;
+			});
+
+			let vertexCode_value = `${tinyGlsl.glslVersionString}
+			in vec4 position;
+			out vec2 coord;
+			//flat out int id;
+			void main() {
+				coord = position.xy * 0.5 + 0.5;
+				//id = gl_VertexID;
+				gl_Position = position;
+			}
+			`;
+
+			//let program;
+
+			/*
+			const positionBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW); //2 triangles covering canvas rectangle
+			*/
+			let positionBuffer = tinyGlsl.cache('positionBufferOfSquareOf2Triangles', function(){
+				const p = gl.createBuffer();
+				//FIXME if gl is replaced in cache, positionBuffer must also be. likely similar for other things in cache.
+				gl.bindBuffer(gl.ARRAY_BUFFER, p);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW); //2 triangles covering canvas rectangle
+				return p;
+			});
+
+			/*let mouseX = 0;
+			let mouseY = 0;
+			canvas.addEventListener("mousemove", (event) => {
+				mouseX = event.offsetX;
+				mouseY = event.offsetY;
+			});*/
+
+
+			//use these instead of canvas[[[
+			//tested in tinyGlsl.cache: if (!gl.getExtension('EXT_color_buffer_float')){
+			//	throw 'EXT_color_buffer_float not supported so cant store just 1 float per pixel';
+			//}
+
+			
+			/*
+			//Create and configure the texture
+			const texture = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, texture);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, canvasWidth, canvasHeight, 0, gl.RED, gl.FLOAT, null);
+			*/
+			let texture = tinyGlsl.cache('texture', function(){
+				let t = gl.createTexture();
+				//FIXME if gl is replaced in cache, texture must also be. likely similar for other things in cache.
+				gl.bindTexture(gl.TEXTURE_2D, t);
+				gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, canvasWidth, canvasHeight, 0, gl.RED, gl.FLOAT, null);
+				return t;
+			});
+
+			/*
+			//Create and configure the framebuffer
+			const framebuffer = gl.createFramebuffer();
+			gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+			gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+			*/
+			let framebuffer = tinyGlsl.cache('framebuffer', function(){
+				const f = gl.createFramebuffer();
+				//FIXME if gl is replaced in cache, framebuffer must also be. likely similar for other things in cache.
+				gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+				gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+				return f;
+			});
+			//]]]
+
+			
+			
+			/*//use these instead of canvas[[[
+			const framebuffer = gl.createFramebuffer();
+			gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+
+			const renderbuffer = gl.createRenderbuffer();
+			gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer);
+			gl.renderbufferStorage(gl.RENDERBUFFER, gl.RGBA4, 512, 512);  // Change the format and dimensions as needed
+
+			// Attach the renderbuffer to the framebuffer
+			gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, renderbuffer);
+
+			// Check if framebuffer is complete
+			if(gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE){
+				console.error('Framebuffer is not complete');
+			}
+			//]]]
+			*/
+
+
+			/*
+			let createProgram = function(vertexShaderSource, fragmentShaderSource){
+				let programCacheKey = 'programCacheKey['+vertexShaderSource+']['+fragmentShaderSource+']';
+				if(tinyGlsl.caches[programCacheKey]) return tinyGlsl.caches[programCacheKey];
+
+
+				const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+				gl.shaderSource(vertexShader, vertexShaderSource);
+				gl.compileShader(vertexShader);
+				if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+					throw new Error(gl.getShaderInfoLog(vertexShader));
+				}
+
+				const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+				gl.shaderSource(fragmentShader, fragmentShaderSource);
+				gl.compileShader(fragmentShader);
+				if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+					throw new Error(gl.getShaderInfoLog(fragmentShader));
+				}
+
+				const program = gl.createProgram();
+				gl.attachShader(program, vertexShader);
+				gl.attachShader(program, fragmentShader);
+				gl.linkProgram(program);
+				if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+					throw new Error(gl.getProgramInfoLog(program));
+				}
+
+				tinyGlsl.caches[programCacheKey] = program;
+				return program;
+			};*/
+
+			let vertexShaderSource = vertexCode_value;
+			let fragmentShaderSource = glslCode;
+			let program = tinyGlsl.cache('programCacheKey['+vertexShaderSource+']['+fragmentShaderSource+']', function(){
+
+				//FIXME does this put extra stuff in gl if theres multiple fragmentShaderSource but reuses same vertexShaderSource?
+
+				/*
+				const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+				gl.shaderSource(vertexShader, vertexShaderSource);
+				gl.compileShader(vertexShader);
+				if(!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)){
+					throw new Error(gl.getShaderInfoLog(vertexShader));
+				}*/
+				let vertexShader = tinyGlsl.cache('vertexShader['+vertexShaderSource+']', function(){
+					let v = gl.createShader(gl.VERTEX_SHADER);
+					gl.shaderSource(v, vertexShaderSource);
+					gl.compileShader(v);
+					if(!gl.getShaderParameter(v, gl.COMPILE_STATUS)){
+						throw new Error(gl.getShaderInfoLog(v));
+					}
+					return v;
+				});
+				
+				/*
+				const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+				gl.shaderSource(fragmentShader, fragmentShaderSource);
+				gl.compileShader(fragmentShader);
+				if(!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)){
+					throw new Error(gl.getShaderInfoLog(fragmentShader));
+				}*/
+				let fragmentShader = tinyGlsl.cache('fragmentShader['+fragmentShaderSource+']', function(){
+					const f = gl.createShader(gl.FRAGMENT_SHADER);
+					gl.shaderSource(f, fragmentShaderSource);
+					gl.compileShader(f);
+					if(!gl.getShaderParameter(f, gl.COMPILE_STATUS)){
+						throw new Error(gl.getShaderInfoLog(f));
+					}
+					return f;
+				});
+
+				const p = gl.createProgram();
+				gl.attachShader(p, vertexShader);
+				gl.attachShader(p, fragmentShader);
+				gl.linkProgram(p);
+				if(!gl.getProgramParameter(p, gl.LINK_STATUS)){
+					throw new Error(gl.getProgramInfoLog(p));
+				}
+				return p;
+			});
+
+			let par = floatsPar;
+
+			//let outarr = new Float32Array(512*512); //FIXME should be a param
+			let outarr = floatsOut;
+
+			/*
+			// start with mandelbrot
+			//try {
+				program = createProgram(vertexCode_value, glslCode);
+				//errorTextarea.value = "OK";
+
+				/*
+				// Get the uniform location for par after the program is created
+				const parLocation = gl.getUniformLocation(program, "par");
+
+				// Set the par uniform
+				gl.uniform1fv(parLocation, par);
+				*
+			//} catch (error) {
+			//	errorTextarea.value = error.message;
+			//}
+			*/
+
+			// compile and link shader on textarea change
+			//vertexCode.addEventListener("input", updateShader);
+			//glslCode.addEventListener("input", updateShader);
+
+			/*
+			function updateShader() {
+				try{
+					const newProgram = createProgram(vertexCode.value, glslCode.value);
+					program = newProgram;
+					errorTextarea.value = "OK";
+				}catch(error){
+					errorTextarea.value = error.message;
+				}
+			}*/
+
+			//a Texture and RenderBuffer are similar. Texture can be input and output for multiple steps in glsl.
+			//RenderBuffer is output only, back to CPU or screen.
+			//A FrameBuffer contains things that contain image data
+			//but does not directly contain image data. Its more for control-flow.
+			//If you dont specify a FrameBuffer, the default one will be to a canvas.
+
+			// render loop
+			let render = function(){
+
+				//Bind the offscreen framebuffer. instead of canvas.
+				gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+
+				gl.clearColor(0, 0, 0, 0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+
+				if (program) {
+					gl.useProgram(program);
+
+					// set uniforms
+					const mouseLocation = gl.getUniformLocation(program, "mouse");
+					//gl.uniform2f(mouseLocation, mouseX, mouseY);
+					gl.uniform2f(mouseLocation, .67844, .2343234); //FIXME remove mouse since tinyGlsl is not specific to graphics or UI
+
+					// draw rectangle
+					gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+					const positionLocation = gl.getAttribLocation(program, "position");
+					gl.enableVertexAttribArray(positionLocation);
+					gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+					const parLocation = gl.getUniformLocation(program, "par");
+					gl.uniform1fv(parLocation, par);
+
+					gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+					//copy from GPU (texture or renderbuffer) to CPU (outarr)
+					gl.readPixels(0, 0, canvasWidth, canvasHeight, gl.RED, gl.FLOAT, outarr);
+					//console.log('outarr[2345]='+outarr[2345]);
+				}
+
+				//requestAnimationFrame(render);
+			};
+			
+			render();
+			if(outarr != floatsOut) throw 'Diff out arrays';
+			return outarr;
+		}),
+		
+	test:
+		(function(){
+			//FIXME 2023-9-4 these tests arent working anymore. have changed tinyGlsl inside ForestCurveFit and not updated the tests,
+			//but am using options.displayGpuTestAndNothingElse instead. TODO update TinyGLSL tests once i get it working better
+			//in ForestCurveFit which uses TinyGLSL.
+
+			// Create the par array and update the uniform
+			let floatsPar = new Float32Array(1000); //at most 1024, or something like that. might be less cuz of other vars in kernels.
+			for (let i=0; i<floatsPar.length; i++){
+				floatsPar[i] = i;
+			}
+
+			let glslCode =
+				`${tinyGlsl.glslVersionString}
+				precision highp float;
+				uniform vec2 mouse;
+				uniform float par[${floatsPar.length}];
+				//in vec4 position;
+				//flat in int id;
+				in vec2 coord;
+				out vec4 fragColor;
+
+				void main() {
+					//TODO gl_VertexID
+					//vec2 coord = position.xy * 0.5 + 0.5; //FIXME?
+					//gl_Position = position; //FIXME?
+
+					float frompar = par[4]; // Get the corresponding value from par
+					float diag[10];
+					diag[0] = 1.3;
+					for(int d=1; d<10; d++){
+						diag[d] = float(d);
+					}
+					//diag[1] = 1.;
+					for(int d=1; d<10; d++){
+						diag[d] = diag[d-1]*diag[d-1]+.7*par[d];
+					}
+
+					vec2 c = vec2(coord.x, coord.y);
+					vec2 z = vec2(0.0, 0.0);
+					float i = -mouse.x * 0.71 + 1.0 * coord.x + 0.1 * mouse.y;
+
+					for (int j = 0; j < 1000; j++) {
+						vec2 v = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+						if (length(v) > 2.0)
+							break;
+						z = v;
+					}
+
+					fragColor = vec4(z.x / (4.0 + diag[2] + -1.9*frompar)+mouse.x,
+						mouse.x * 0.001, 0.0 + mouse.y * mouse.y * 0.000001, 1.0);
+				}`;
+			
+			//let floatsOut = new Float32Array(801); //TODO what size?
+
+			let floatsOut = tinyGlsl.internalGLSL_disorganizedTODO(glslCode, floatsPar, new Float32Array(801), 1, 801);
+			console.log('floatsOut[222]='+floatsOut[222]);
+			
+			
+			let parB = Float32Array.of(100,2);
+			let outsBSize = 10;
+			let testBOuts = tinyGlsl.internalGLSL_disorganizedTODO(
+				`${tinyGlsl.glslVersionString}
+				precision highp float;
+				uniform vec2 mouse;
+				uniform float par[${parB.length}];
+				in vec2 coord;
+				out vec4 fragColor;
+
+				void main(){
+					int id = int(coord.x*${outsBSize+'.'});
+					float ret = par[0]+pow(par[1],float(id));
+					fragColor = vec4(ret, 0., 0., 1.);
+				}`,
+				parB,
+				outsBSize
+			);
+			for(let i=0; i<10; i++){
+				let correctOut = 100+2**i;
+				let observedOut = testBOuts[i];
+				console.log('i='+i+' correctOut='+correctOut+' observedOut='+observedOut+' diff='+Math.abs(correctOut-observedOut));
+				if(correctOut != observedOut){
+					throw 'i='+i+' correctOut='+correctOut+' observedOut='+observedOut;
+				}
+			}
+			console.log('GLSL test pass: internalGLSL_disorganizedTODO');
+			
+			let outsId = tinyGlsl.simple('ret = float(id);', Float32Array.of(0,10,20,30,40,50), 1, 20);
+			//let outsId = tinyGlsl.simple('ret = float(theId);', Float32Array.of(0,10,20,30,40,50), 20);
+			for(let i=0; i<outsId.length; i++){
+				let correctOut = i;
+				let observedOut = outsId[i];
+				console.log('outsId['+i+']='+outsId[i]);
+				//TODO if(correctOut != observedOut) throw 'i='+i+' correctOut='+correctOut+' observedOut='+observedOut;
+			}
+
+			let outsC = tinyGlsl.simple('ret = par[2]+par[3]+float(id)*.001;', Float32Array.of(0,10,20,30,40,50), 1, 100);
+			//let outsC = tinyGlsl.simple('ret = par[2]+par[3]+.001;', Float32Array.of(0,10,20,30,40,50), 100);
+			for(let i=0; i<outsC.length; i++){
+				let observedOut = outsC[i];
+				let approxCorrectOut = 20+30+i*.001;
+				console.log('outsC['+i+']='+observedOut);
+				let diff = Math.abs(observedOut-approxCorrectOut);
+				//if(diff > .000001) throw 'i='+i+' approxCorrectOut='+approxCorrectOut+' observedOut='+observedOut;
+			}
+			console.log('tinyGlsl.simple test A pass');
+			
+			let hundredFloats = new Float32Array(100);
+			for(let i=0; i<hundredFloats.length; i++){
+				hundredFloats[i] = Math.random();
+			}
+			//TODO time it using the performance object, make tinyGlsl.time function, copy it from my other code.
+			let hundredOuts = tinyGlsl.simple(
+				`float sum = 0.;
+				float idf = float(id);
+				for(int i=0; i<pars; i++){
+					for(int j=0; j<pars; j++){
+						sum += (par[i]+idf)*(par[j]-idf);
+					}
+				}
+				ret = sum;`,
+				hundredFloats,
+				1,
+				hundredFloats.length
+			);
+			let id = 71;
+			let sum = 0;
+			for(let i=0; i<hundredFloats.length; i++){
+				for(let j=0; j<hundredFloats.length; j++){
+					sum += (hundredFloats[i]+id)*(hundredFloats[j]-id);
+				}
+			}
+			let approxCorrectOut = sum;
+			let observedOut = hundredOuts[id];
+			let ratio = observedOut/approxCorrectOut;
+			let s = 'id='+id+' approxCorrectOut='+approxCorrectOut+' observedOut='+observedOut+' ratio='+ratio;
+			console.log(s);
+			if(Math.max(ratio,1/ratio) > 1.00001) throw s;
+			console.log('tinyGlsl.simple test B pass');
+			
+		}),
+};
+
+if(options.doTinyGlslTestAtBootThenExit){
+	console.log('START options.doTinyGlslTestAtBootThenExit');
+	tinyGlsl.test();
+	throw 'END options.doTinyGlslTestAtBootThenExit. Its supposed to throw here, not a bug.';
+}
+
+
+/*
+
+TODO rewrite some of this text.
+
+
+This is a variant of getThe10DataPointsWorkingWith4201DimensionalScalarFieldGpujsThenGoForNeuralQlearningOf3BouncingBalls. Do it this way cuz i can custom design, choose amounts of multiplies plusses sines sqrts etc, a func that can be computed really freakin fast in GPU cuz has very few dimensions and temporary vars. i wanna do it as scalar field of loss function over all the model weights, and combine that with the input output pairs that it should learn. it should learn the qscore of 12 dimensions to 1 dimension in case of my 3 bouncing balls. remember that all math ops, except maybe sqrt divide absval etc (cuz need to start positive) can be computed similar to mul(x,y)=tanh(atanh(x)*atanh(y)) allows mul(a,mul(b,c))=mul(mul(a,b),c) and keeps all numbers in range -1 to 1. Make this kind of neuralnet. try it with some simple data and simple models, then upgrade to neural qwlearning of 3 bouncing balls trying to raise one of the balls by moving one of the other balls so is similar to cartpole and other simple games like in openaiGym. Do this asap before get back to wikibinator.
+
+Frustrated with tensorflowjs doing just around 100 megaflops when i was expecting 40 gigaflops....
+screw this. im gonna make my own GPU optimized curve fitter. not a neuralnet specificly. just a really powerful browser GPU optimized curve fitter for forest of + * / sine arcsine exp log etc, with n input nodes, such as the 12 dimensions of yPosition xPosition yVelocity xVelocity for 3 bouncing balls i want to neural-qlearn on. my 15376 dimensional 4SAT solver is such a curve fitter. and im gonna pull that full teraflop from browser.
+i dont need a neuralnet for sat solving since i defined a custom energy function that has lower energy the more SAT constraints are solved
+you can play with it here. paint with 2 mouse buttons and rule110 grows on things https://memecombinator.io/experiments/ConvfieldDemo3.html
+
+S:\q\q45x\w\forestcurvefit
+
+if u use loss function as a scalar field of numModelWeights dimensions, then you cant overfit, but you can get stuck in localmin
+
+my curve fitter will use a forest of up to 4096 flops (+ * sine arcsine exp log etc) so could contain very small neuralnets or arbitrary equations. gonna compile it to webgl shaders and have cpu kind too. tensorflowjs is gonna eat my dust. 32 bit opcodes. 12 bits for each of 2 pointers lower in an array, and 8 bits to choose which math op
+
+
+i'll be able to learn some very simple functions in less than a millisecond
+
+i think 1 teraflop should work ok. compile the whole up to 4096 dimensional scalar field to fit in a GPU core. run it on a bunch of starting positions in parallel. no backprop. calculus directly between the inputs and output. u change this input by epsilon, how much does the output change. up to 4096 times
+
+up to 4096*32 bits. its 32 bits per opcode. its basically, each int tells it which 2 array indexs to read 2 scalars from, and the other 8 bits tells it what to do with them * + log sine etc, then write the result in current index
+
+theres a 6 dimensional scalar field displayed as 3 bouncing balls (12d game state including positions and
+velocities) in a html file, and the rule110 quasicrystal in another html file, since those are related
+to the math. see earlyExperiments dir. i think i should get the thing working before taking pics of it.
+
+theres a 6 dimensional scalar field displayed as 3 bouncing balls (12d game state
+including positions and velocities) in a html file, and the rule110 quasicrystal
+in another html file, since those are related to the math. see earlyExperiments dir.
+i think i should get the thing working before taking pics of it.
+
+i am gonna have so much fun with this thing. the little things it will allow me to do. like i could move stuff around a webpage in reaction to the mouse
+
+if i get live neural-qlearning working even for very very simple games (such as 12-100 dimensional game states) thats likely to go as viral cuz ppl will play the games and make up new games involving qlearning into the rules themselves
+
+2023-8-28[[ TODO
+designWayInForestcurvefitToSimTheRule110QuasicrystalWithJustAFewTimesMoreDimsByHavingManySmallParallelThingsToAddToFormTotalEnergy
+Also maybe should design way to fork n number of trainingData at once as loss func being
+high dimensional scalar field.
+Also remember that i plan to use this to make prototype of screwballscramble-like video games before
+porting them or parts of th em to wikib, and there will be lots of sparse pieces in MMG of energyfunc
+to sum together if it really is a huge 2d moving heightmap. And will use it for neuralqlearning of
+3 bouncing balls, and more later once get that working. And for musical instruments to compute it
+forward though not using that part for curvefitting.
+Also, should it support 2d convolution (and 1d 3d 4d and what others?) vs have to duplicate
+the int opcodes that many times, and this seems like another variant of running it n times
+in parallel and adding those to model the loss function of training a neuralnet for n input/output vec pairs.
+Also should this support other tensor ops such as matmul, that might be found in tensorflowjs,
+or should I keep it simple and more limited to the few usecases thought of so far and similar patterns?
+Those few usecases including simulating rule110 quasicrystal, painting with 2 mouse buttons
+white and black pixels and fitting a mandelbrot fractal to it, curvfy lines in 2d bend around
+obstacles as a puzzle game that AI can solve by curvefitting, neural-qlearning of at least 3 balls
+at once to simulate airhockey and AI players learning to play it and optionally for more than
+2 players at once adding more stuff to the game, musical instruments, etc.
+Also, do I want normal backprop vs only the kind of calculus done on all weight dimensions at once?
+TODO list the usecases, and the kinds of calculations andOr categories of those
+(like tensor ops is a category) needed to make those usecases happen,
+and choose a design before writing much more code.
+
+
+Trying to organize this...
+* given a vecN->vecM vecfield and T trainingData each a vecN and vecM, a way to only store the vecfield once but store the T*N inputs and EITHER (can choose either one, so this is really 2 or 3 ops) generate the T*M numbers OR generate a single number thats the sumOfSquaredError between the observed T*M numbers vs the given correct T*M numbers (what the inputs should generate near). This is an optimization to avoid duplicating the vecN->vecM again T times. Since its vecN (4 in the case of rule110 quasicrystal) to 1, these can be summed similar to how they're summed in the rule110 html quasicrystal demo, to adjust the velocity at each position (each pixel has a position and a velocity of its brightness) instead of having to do squared number of pixels the hard way (like will do it for neuralnets) but the rule110 html does it far more efficiently cuz its the sum of many energyfuncs.
+* convolutional 1d. just for math completeness, even though i probably wont use this one since need at least 1d space 1d time to do anything useful.
+* convolutional 2d. Example: rule110 quasicrystal. This is an optimization to avoid storing the vecN->num (energy func) centered on each pixel individually.
+* convolutional 3d. Example: conwayLife quasicrystal. FIXME might want it to wrap around at weird offsets to make glider? Could do just the parts at the wrap the slower way?
+* matmul AB BC.
+* vecN->vecM small vectorField 
+* sum of many energyfuncs, to be an energyfunc.
+
+todo look thru the tensorflop ops of what u can do with multiple tensors to make another tensor, and consider which of those i want a similar thing to in this software.
+
+What tensorflow is to a forest of tensors, ForestCurveFit (this software) is to to a forest of vectorfields. Combining vectorfields in various ways makes more vectorfields. In some cases by forking (similar to a loop but in parallel). Maybe in some cases by a sequential loop. In some cases by summing their outputs (like rule110 quasicrystal html sums potentialEnergy during computing calculus gradients), in some cases by concatting the outputs of 2 things resulting from same inputs. in some cases from concatting outputs and inputs so you just sum the quantity of each to get more outputs and more inputs, etc. This software should be able to run millions of sequential cycles per second, unlike I saw tensorflowjs do about 800 per second cuz its not designed for this kind of thing, or at least not in the webgl backend of it. I need at least 20,000 sequentially, times as much calculation per sound sample, to generate sound, for example. Tensorflow is functions making functions since the tensor view of it is lazyEvaled. But tensorflow wasnt designed for this kind of optimizing, and was not designed for what browser is fast at. It was designed as a desktop program first. Im designing from scratch to make it low lag and lots of CPU and GPU flops in browsers. And I think I can do it in alot smaller code than tensorflowjs is about 4mB nonminified and about 1mB minified. Im thinking closer to 50kB of code for the main code plus a few hundred kB for GPU.js optimization of it, plus the size of demos and experiments but you dont have to include those when you use it for other things.
+
+
+Dont let this bunch of extra stuff it could also distract me from the main usecase of training very small neuralnets (like of 12 input nodes and 300 total weights) live in browser optimized by GPU.js, on a given  set of vecN->vecM output pairs and having a loss function for all of that. Has to be really small. If thats 300 dimensions, then it has to compute it 1+300 times in parallel, with 300 different directions of epsilon, to get the gradient.
+Thats barely big enough to have any matmul in it. Maybe a few 10x10s, and raise size to 500 dims or 1000 dims. but thats about as big as i'd want it. maybe too big to use in realtime.
+What I need is a proofOfConcept that I can play with (and id like to show ppl but mostly its for me, cuz i need to understand the efficiency etc of it before i can make a guess at how hard neuralQlearning will be).
+So make a scalarfield for learning the spiral problem in https://playground.tensorflow.org/ and allow the user to put different include/exclude dots down with 2 mouse buttons and add those to training data. Just eval the model (whatever kind of model it is) on all the dots, and roll ball around the model weights. I think the problem is that neuralnet they're using only uses tanh but sine arcsine exp log / % + - etc (if tanh them and find a way to make them smooth or at least continuous position yet jagged in velocity etc) could model that better, AND using GPU it could explore alot more of the space 
+...
+https://playground.tensorflow.org/#activation=tanh&batchSize=10&dataset=spiral&regDataset=reg-plane&learningRate=0.03&regularizationRate=0&noise=0&networkShape=7,8,8,8,7,6&seed=0.22046&showTestData=false&discretize=false&percTrainData=50&x=true&y=true&xTimesY=false&xSquared=false&ySquared=false&cosX=false&sinX=false&cosY=false&sinY=false&collectStats=false&problem=classification&initZero=false&hideText=false
+
+
+
+
+
+
+see pic at https://twitter.com/benrayfield/status/1696288227072598377 and try the spiral at https://playground.tensorflow.org/ .
+
+For my doubletrianglemodel, either choose manually which mathops go at which index, or add another array (by concat) of weights for each op, so for diag size n, theres n*n doubletriangle array plus n*numops weights (that each such row should sum to 1 when normed) so each diag can be all the ops continuously. but would have to solve the problem with sqrt, divide, log, etc needing positive input, unless just absvaled the input but that creats a sharp corner, or could square the input and sqrt it later. but that doesnt work for sqrt. in any case, i can put funcs very near those in. remember m(x,y)=tanh(atanh(x)*atanh(y)) leads to m(x,m(y,z))==m(m(x,y),z) and that can keep any such op in range -1 to 1.
+
+For now manually choose the mathops per index while using doubletriangle array, and choose only the smooth ones. for example, only tanh and * and +1 etc or combined (1+tanh(sumA)*tanh(sumB).
+Reproduce what tensorflowplayground did with the spiral. this shouldnt take long to write the code.
+Make a html that displays it similarly, but just the part on the right with the 2 colors of dots to include and exclude, and let user paint more of those on there with 2 mouse buttons, and auto solve it. TODO.
+
+Also I do want the n^2+n*numOps model, thats an upgrade of the doubletriangle model that does NOT need opcodes since it explores all possible opcodes and all possible forests of them. Maybe it has 3 ops each so its n*3*numOps?
+]]
+*/
+
+const log2OfMaxOpcodes = 8;
+const log2OfMaxVecFieldOpcodes = 12;
+const maxOpcodes = 2**log2OfMaxOpcodes; //+ * sine arcsine etc. must be a powOf2.
+const maxVecFieldOpcodes = 2**log2OfMaxVecFieldOpcodes; //must be a powOf2
+const maskPtrAfterSlide = maxVecFieldOpcodes-1; //use this OR [slideA and slideB]
+const slideA = log2OfMaxOpcodes;
+const slideB = log2OfMaxOpcodes+log2OfMaxVecFieldOpcodes;
+const maskA = (maxVecFieldOpcodes-1)<<slideA; //fits in int opcode
+const maskB = (maxVecFieldOpcodes-1)<<slideB; //fits in int opcode
+const maskOp = maxOpcodes-1; //no slide cuz its lowest. fits in int opcode.
+
+var VecField = function(numInputs, numTempVars, numOutputs, isSquared){
+	
+	this.numVars = numInputs+numTempVars+numOutputs;
+	//if(this.numVars > 
+	this.numInputs = numInputs; //TODO make an opcode that means input so dont replace it in the array?
+	this.numTempVars = numTempVars;
+	this.numOutputs = numOutputs;
+	
+	//If this.isSquared, you use this.run(Float32Array size this.numVars**2 else just this.numVars).
+	//The squared way is 2 triangle arrays for neuralnet-like weightedSums before doing MathOp on those 2
+	//to define the next output number, stored in the diagonal of that array. The weights not on diagonal
+	//are only read here. You would normally change the weights using calculus gradients of the last number
+	//in the array (either way, squared or not)
+	//which is the last output index (and in case of a scalar field, the only output index).
+	this.isSquared = !!isSquared;
+	
+	//opcode has 2 pointers at lower index and a byte to specify 1 of: + * sine arcsine etc.
+	//It reads 2 scalars at those 2 indexs then writes current index with the + or * etc of those 2 things.
+	this.opcodes = new Int32Array(this.numVars);
+};
+
+const nonneg = x=>Math.max(0,x); //aka relu
+
+//https://en.wikipedia.org/wiki/Double-precision_floating-point_format
+const minNormalPositiveDouble = 2.2250738585072014e-308;
+const minSubnormalPositiveDouble = 4.9406564584124654e-324;
+
+//const positive = x=>Math.max(minNormalPositiveDouble,x);
+const positive = x=>Math.max(minSubnormalPositiveDouble,x);
+
+//range -1 to 1
+const bifraction = x=>Math.max(-1,Math.min(x,1));
+
+//range 1 to infinity
+const max1 = x=>Math.max(1,x);
+
+//so multiply can make something bigger or smaller, and algebra in general works in neuralnet weights,
+//such as you could manually choose weights to define a chosen forest of nand gates,
+//but thats a waste of most of the model weights which are better for high dimensional curved scalar fields.
+//normScalar(x)*normScalar(y) - x*y should be near 0 when x and y are between about plus/minus sqrt(tanhScale)
+//or maybe less depending how much precision you want.
+//const tanhScale = 1000;
+//const tanhScale = 10;
+//const tanhScale = 3;
+const normScalar = x=>(options.tanhScale*Math.tanh(x/options.tanhScale)); //returns between plus/minus tanhScale.
+//console.log('tanhScale='+tanhScale+', normScalar(30)='+normScalar(30));
+
+const makeGlslCode_normScalar = code=>('(tanhScale*tanh('+code+'/tanhScale)');
+
+//const TanhedMathOp = function(whichMathOp, numA, numB){
+//	return Math.tanh(MathOp(whichMathOp, numA, numB));
+//};
+
+const randInt = max=>Math.floor(Math.random()*max);
+
+const randIntRange = (from,toExcl)=>(from+randInt(toExcl-from));
+
+/* My 800 dimensional manifold has lots of jagged corners but shapes itself to data anyways by shaking out of local min.
+Each of these are combined with 2 weightedSums like pow does tanh(pow(Math.max(0,tanh(weightedSumA)),tanh(weightedSumB)).
+U got any ideas how to make it smoother?
+*
+const MathOp = function(whichMathOp, numA, numB){
+	let ret;
+	switch(whichMathOp){
+		//case 0: ret = NaN;
+		//case 0: ret = 0; //FIXME
+		case 0: ret = 1; //use this as neuralnet bias for the second inner loop in doubleTrianglePlusOnehotRectangleModelForward.
+			//FIXME find a way for this never to happen, not call MathOp cuz this means leave
+			//it in the array as it already is. Could take prev value as a param, but I'd rather
+			//not read it just to write the same value back. It seems I want to only call this
+			//when the value depends only on numA and numB, and if it is to leave the value as
+			//itself, dont call this. This will happen in (diagonal if squared, else direct)
+			//in indexs 0 to VecField.numInputs-1.
+		break;case 1: ret = numA;
+		break;case 2: ret = numB;
+		break;case 3: ret = -numA;
+		break;case 4: ret = numA-numB;
+		break;case 5: ret = numA+numB;
+		break;case 6: ret = numA*numB;
+		//break;case 7: ret = numA/numB;
+		break;case 7: ret = numA/nonneg(numB);
+		//break;case 8: ret = numA%nonneg(numB);
+		break;case 8: ret = numA%positive(numB); //FIXME what if its the smallest possible positive double? what about subnormal 0s?
+		break;case 9: ret = Math.exp(numA);
+		break;case 10: ret = Math.pow(nonneg(numA),numB);
+		break;case 11: ret = Math.pow(sigmoid(numA),numB);
+		break;case 12: ret = Math.log(nonneg(numA));
+		break;case 13: ret = Math.sin(numA);
+		break;case 14: ret = Math.asin(bifraction(numA));
+		break;case 15: ret = Math.cos(numA);
+		break;case 16: ret = Math.acos(bifraction(numA));
+		break;case 17: ret = Math.tan(numA);
+		break;case 18: ret = Math.atan(numA); //FIXME infinity range allowed?
+		//break;case 18: ret = Math.atan2(numA,numB); //FIXME?
+		break;case 19: ret = sigmoid(numA);
+		break;case 20: ret = Math.tanh(numA);
+		break;case 21: ret = Math.max(numA,numB);
+		break;case 22: ret = Math.min(numA,numB);
+		break;case 23: ret = Math.abs(numA);
+		break;case 24: ret = Math.atanh(bifraction(numA));
+		break;case 25: ret = Math.sqrt(nonneg(numA));
+		break;case 26: ret = numA*numA; //square
+		break;case 27: ret = Math.cbrt(numA);
+		break;case 28: ret = numA*numA*numA; //cube
+		break;case 29: ret = Math.cosh(numA);
+		break;case 30: ret = Math.acosh(max1(numA)); //cuz acosh(anything less than 1) is NaN
+		break;case 31: ret = Math.acosh(1+sigmoid(numA)); //cuz acosh(anything less than 1) is NaN
+		break;case 32: ret = Math.sinh(numA);
+		break;case 33: ret = Math.asinh(numA);
+		default: ret = 0;
+	}
+	return ret;
+};
+
+const numMathOps = 34; //FIXME keep in sync with MathOp switch, etc. TODO generated GPU.js and CPU js evaled code.
+*/
+
+
+//normed MathOp, returns in range plus/minus options.tanhScale.
+//When options.tanhScale is very big, such as 1024 or 16384, it can do all possible algebra expressions,
+//but dont make it too big cuz float32 only has 24 digit bits (not including exponent or sign)
+//and 1024 takes 10 of those bits, leaving 14 bits, if range is around plus/minus 1 normally,
+//but you'll only get precise results when calculating things much smaller than options.tanhScale.
+//Also, tanhScale even slightly bigger than 1 makes it noticable more chaotic and overfitting,
+//and is a possible future research path but as of 2023-9-2 it seems best to keep it at or slightly above 1.
+const Op = function(whichMathOp, numA, numB){
+	return normScalar(MathOp(whichMathOp, numA, numB));
+};
+
+/* My 800 dimensional manifold has lots of jagged corners but shapes itself to data anyways by shaking out of local min.
+Each of these are combined with 2 weightedSums like pow does tanh(pow(Math.max(0,tanh(weightedSumA)),tanh(weightedSumB)).
+U got any ideas how to make it smoother?
+..
+I use alot of tanh(x) cuz it nearly equals x (infinitely well in the limit) near x=0. I've simulated a bouncing spring using
+tanh(position) and tanh(velocity) and it just added a slight decay. Its generally useful for reducing vanishing/exploding gradients
+..
+x nearly equals tanh(x) nearly equals tanh(tanh(x)) and so on infinity tanh's deep. This function of 1 number to 1 number is
+very useful for reducing vanishing/exploding gradients cuz doesnt change much unless numbers get big. So + * / sine arcsine
+log exp etc can happen thru it.
+*/
+const MathOp = function(whichMathOp, numA, numB){
+	return MathOps[whichMathOp].jsLambda(numA,numB);
+	/*let ret;
+	switch(whichMathOp){
+		//case 0: ret = NaN;
+		//case 0: ret = 0; //FIXME
+		case 0: ret = 1; //use this as neuralnet bias for the second inner loop in doubleTrianglePlusOnehotRectangleModelForward.
+			//FIXME find a way for this never to happen, not call MathOp cuz this means leave
+			//it in the array as it already is. Could take prev value as a param, but I'd rather
+			//not read it just to write the same value back. It seems I want to only call this
+			//when the value depends only on numA and numB, and if it is to leave the value as
+			//itself, dont call this. This will happen in (diagonal if squared, else direct)
+			//in indexs 0 to VecField.numInputs-1.
+		break;case 1: ret = numA;
+		break;case 2: ret = numB;
+		break;case 3: ret = -numA;
+		break;case 4: ret = numA-numB;
+		break;case 5: ret = numA+numB;
+		break;case 6: ret = numA*numB;
+		//break;case 7: ret = numA/numB;
+		break;case 7: ret = numA/nonneg(numB);
+		//break;case 8: ret = numA%nonneg(numB);
+		break;case 8: ret = numA%positive(numB); //FIXME what if its the smallest possible positive double? what about subnormal 0s?
+		break;case 9: ret = Math.exp(numA);
+		break;case 10: ret = Math.pow(nonneg(numA),numB);
+		break;case 11: ret = Math.log(nonneg(numA));
+		break;case 12: ret = Math.sin(numA);
+		break;case 13: ret = Math.asin(bifraction(numA));
+		break;case 14: ret = Math.cos(numA);
+		break;case 15: ret = Math.acos(bifraction(numA));
+		break;case 16: ret = Math.tan(numA);
+		break;case 17: ret = Math.atan(numA); //FIXME infinity range allowed?
+		break;case 18: ret = Math.tanh(numA);
+		break;case 19: ret = Math.atanh(bifraction(numA));
+		default: ret = 0;
+	}
+	return ret;
+	*/
+};
+
+const MathOps = [
+	{	description: 'use this as neuralnet bias for the second inner loop in doubleTrianglePlusOnehotRectangleModelForward',
+		jsLambda: (numA,numB)=>1,
+		glsl: (codeA,codeB)=>'1.',
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>numA,
+		glsl: (codeA,codeB)=>codeA,
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>numB,
+		glsl: (codeA,codeB)=>codeB,
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>-numA,
+		glsl: (codeA,codeB)=>(codeA.startsWith('-') ? codeA.substring(1) : ('-'+codeA)),
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>(numA-numB),
+		glsl: (codeA,codeB)=>('('+codeA+'-'+codeB+')'),
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>(numA+numB),
+		glsl: (codeA,codeB)=>('('+codeA+'+'+codeB+')'),
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>(numA*numB),
+		glsl: (codeA,codeB)=>('('+codeA+'*'+codeB+')'),
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>(numA/nonneg(numB)),
+		glsl: (codeA,codeB)=>('('+codeA+'/abs('+codeB+'))'),
+	},
+	{	description: 'FIXME what if its the smallest possible positive double? what about subnormal 0s?',
+		jsLambda: (numA,numB)=>(numA%positive(numB)),
+		glsl: (codeA,codeB)=>('mod('+codeA+',abs('+codeB+'))'),
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>Math.exp(numA),
+		glsl: (codeA,codeB)=>('exp('+codeA+')'),
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>Math.pow(nonneg(numA),numB),
+		glsl: (codeA,codeB)=>('pow(abs('+codeA+'),'+codeB+')'),
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>Math.log(nonneg(numA)),
+		glsl: (codeA,codeB)=>('log(abs('+codeA+'))'),
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>Math.sin(numA),
+		glsl: (codeA,codeB)=>('sin('+codeA+')'),
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>Math.asin(bifraction(numA)),
+		glsl: (codeA,codeB)=>('asin('+codeA+')'),
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>Math.cos(numA),
+		glsl: (codeA,codeB)=>('cos('+codeA+')'),
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>Math.acos(bifraction(numA)),
+		glsl: (codeA,codeB)=>('acos('+codeA+')'),
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>Math.tan(numA),
+		glsl: (codeA,codeB)=>('tan('+codeA+')'),
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>Math.atan(numA),
+		glsl: (codeA,codeB)=>('atan('+codeA+')'),
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>Math.tanh(numA),
+		glsl: (codeA,codeB)=>('tanh('+codeA+')'),
+	},
+	{	description: 'TODO',
+		jsLambda: (numA,numB)=>Math.atanh(bifraction(numA)),
+		glsl: (codeA,codeB)=>('atanh('+codeA+')'),
+	},
+	/*{	description: 'Random bifraction (range -1 to 1). Unsure if this should be an op, cuz its not repeatable',
+		jsLambda: (numA,numB)=>2*Math.random()-1,
+	},*/
+	/*{	description: 'Random fraction. Unsure if this should be an op, cuz its not repeatable',
+		jsLambda: (numA,numB)=>Math.random(),
+	},*/
+	/*{	description: 'Random in small range. Unsure if this should be an op, cuz its not repeatable',
+		jsLambda: (numA,numB)=>(.001*Math.random()),
+	},*/
+	/*{	description: 'Random fraction thats set once per calculation of gradient, the same every time its called during that same gradient, so its not adding (randomA-randomB)/epsilon to gradient',
+		jsLambda: function(numA,numB){ return options.lastRandomVal },
+		glsl: (codeA,codeB)=>('lastRandomVal'), //FIXME pass this in from options.lastRandomVal before calling glsl.
+	}*/
+];
+
+const numMathOps = MathOps.length; //FIXME keep in sync with MathOp switch, etc. TODO generated GPU.js and CPU js evaled code.
+
+
+//numInputs includes the constant 1 at index 0.
+var TriTriRect = function(numInputs, numNodes, numMathOps, numOuts){
+	this.numInputs = numInputs;
+	this.numNodes = numNodes;
+	this.numMathOps = numMathOps;
+	this.numOuts = numOuts; //at end of diag
+	this.square = numNodes**2;
+	this.rect = numNodes*numMathOps;
+	this.size = this.square+this.rect;
+	this.pos = new Float32Array(this.size);
+	this.pos[0] = 1; //neuralnet bias
+	this.vel = new Float32Array(this.size);
+};
+
+
+
+//In theory this (after fix bugs) kind of neuralnet can choose a different 1 of 10 activationFunctions per node,
+//of 20 nodes, 1 node per layer, in 20^2+20*10=600 params. So a 600 dimensional scalar field,
+//or 3 outputs for red green blue. If 2 inputs x y could make interesting graphics
+//
+//The doubleTrianglePlusRectangle model is a neuralnet that has 1 node per layer
+//and chooses neuralActivationFunction separately per node, each using
+//(TODO choose one) either ceil(log2(numMathOps)) or numMathOps (oneHot) numbers.
+//Each such mathOp combines 2 numbers, that are made from tanh of weightedSums.
+//Cuz tanh is always between -1 and 1, there should be a few ops of multiply, that scale it inside the tanh,
+//considering that if m=tanh(atanh(x)*atanh(y)) then m(x,m(y,z))==m(m(x,y),z), and that can be done for many mathOps similarly,
+//but FIXME theres still jaggedness around sqrt(abs(x)), sqrt(max(0,x)), x/abs(y), x/max(0,y), etc.
+//Can explore various mathOps later to find which are smoother, which work better together, etc.
+//
+//For diagonal (of a matrix) size d, and given numMathOps, arr.length==d**2+d*numMathOps,
+//or maybe it should be arr.length==d**2+d*Math.ceil(Math.log2(numMathOps)).
+//Input nodes go on the diagonal of that d**2. Output node(s) (normally is just 1 but could be more) also go on that diagonal.
+//Choice of neuralActivationFunction per node on that diagonal is continous in the d*numMathOps or d*Math.ceil(Math.log2(numMathOps)) numbers.
+//
+//Returns Float32Array(...numNodes scalars starting with input nodes then temp nodes then output nodes...).
+//Does not modify any of the params.
+//
+//numInputs includes the constant 1, at arr[0] and ret[0], thats used as neuralnet bias. Will throw if its not 1.
+//
+var doubleTrianglePlusOnehotRectangleModelForward = function(numInputs, numNodes, numMathOps, arr, optionalReuseRetArray){
+	let square = numNodes**2; //2 triangle arrays stored in a square array. 1 neuralnet layer per node.
+	let rect = numNodes*numMathOps; //smoothly choose mathOp per node
+	let expectArrSize = square+rect;
+	if(arr.length != expectArrSize){
+		throw 'Expected arr.length to be '+expectArrSize+' but its '+arr.length;
+	}
+	if(arr[0] != 1){
+		throw 'arr[0] must always be 1, used as neuralnet bias, but is '+arr[0];
+	}
+	//let ret = optionalReturnArray || new Float32Array(numNodes);
+	let ret = optionalReuseRetArray || new Float32Array(numNodes);
+	if(ret.length != numNodes){
+		throw 'ret.length must be '+numNodes+' but is '+ret.length;
+	}
+	//ret[0] = 1; //neuralnet bias
+	for(let n=0; n<numInputs; n++){ //copy visibleNodes/inputs
+		//FIXME should it be able to take input from optionalReturnArray? Id like to for parallel efficiency,
+		//but Id like NOT to cuz arr should be the only input, including visibleNodes input AND neuralnet weights
+		//and choice of neuralActivationFunction per node.
+		//ret[n] = arr[n];
+		ret[n] = arr[n*numNodes+n];
+	}
+	for(let n=numInputs; n<numNodes; n++){
+		let sumA = 0;
+		let sumB = 0;
+		for(let j=0; j<n; j++){ //sum left n-1 weights, and other is sum top n-1 weights, multiplied by other nodes.
+			//let incomingNeuralActivation = ret[j*numNodes+j];
+			let incomingNeuralActivation = ret[j];
+			let weightA = arr[n*numNodes+j];
+			let weightB = arr[j*numNodes+n];
+			sumA += weightA*incomingNeuralActivation;
+			sumB += weightB*incomingNeuralActivation;
+		}
+
+		//TODO add numNodes*numExtraParamsPerNode params after the numNodes**2+numNodes*numMathOps params, instead of these being constant 1.
+		let scaleA = 1;
+		let scaleB = 1;
+		let scaleC = 1;
+
+		//FIXME should this be a parameter, part of the int opcode, to tanh it vs leave it as is or what?
+		//let numA = Math.tanh(sumA);
+		//let numB = Math.tanh(sumB);
+		let numA = normScalar(sumA);
+		let numB = normScalar(sumB);
+		numA *= scaleA;
+		numB *= scaleB;
+		//arr[i] = MathOp(whichMathOp, numA, numB);
+		let sumOps = 0;
+		let rectOffsetForNode = square+n*numMathOps;
+		for(let whichMathOp=0; whichMathOp<numMathOps; whichMathOp++){
+			let addedMulipliedSinedEtc = MathOp(whichMathOp,numA,numB);
+			//if(isNaN(addedMulipliedSinedEtc)){
+			//	throw 'addedMulipliedSinedEtc is NaN, MathOp('+whichMathOp+','+numA+','+numB+')';
+			//}
+			//let normed = Math.tanh(addedMulipliedSinedEtc); //range -1 to 1
+			let normed = normScalar(addedMulipliedSinedEtc);
+			let opWeightAtNode = arr[rectOffsetForNode+whichMathOp];
+			sumOps += opWeightAtNode*normed;
+		}
+		sumOps *= scaleC;
+		//let neuralActivation = Math.tanh(sumOps); //range -1 to 1
+		let neuralActivation = normScalar(sumOps);
+		ret[n] = neuralActivation;
+	}
+	//If scalar field, that scalar is ret[ret.length-1]. ret[0] should always be 1.
+	//After that are inputs. Then temp vars. Then output(s).)
+	return ret;
+};
+
+var glslInt = num=>(''+num);
+
+var glslFloat = num=>{
+	let s = ''+num;
+	if(!s.includes('.')){
+		s += '.';
+	}
+	return s;
+};
+
+TriTriRect.prototype.makeGlslCode_doubleTrianglePlusOnehotRectangleModelForward = function(){
+if(trainingData[0].size() != 3){
+	throw 'Should be y, x, value, but data point size is '+trainingData[0].size();
+}
+//TODO instead of 3 floats, later store 48*48 data points in 192 floats
+//(which just barely fits with 20 nodes and 20 mathops in the max approx 1024 uniform floats that can fit
+//in GLSL into a gpu core, but that 1024 may vary across computers, TODO verify)...
+//Each such float will store 12 data points as an integer 0 to 2**24-1.
+//Mod by 4 to get lowest, then shift down 2 bits and repeat.
+//That way, all 48x48 pixels can be painted white (10), black (01). or have AI predict it (00, or should it be 11?).
+//2 mouse buttons paint white, black, or hold both buttons to erase aka have AI predict that.
+//Mouse should paint with a circular brush of some size, maybe varying size chosen by mouse wheel?
+//You paint any simple pattern and the AI predicts the rest of it and displays it.
+//It can be displayed at much higher resolution than 48x48 but thats the resolution it learns at.
+//The approx 800 dimensional scalar field, in which y and x are 2 dimensions, has unlimited resolution, can do smooth curves.
+let floatsOfDataPoints = trainingData.length*trainingData[0].size(); //y, x, value.
+let inarrSize = this.size+floatsOfDataPoints;
+return `#version 300 es
+//this is the prediction kernel. The other one (TODO) is the training kernel that has an extra loop over each trainingData
+//and computes loss at "uniform float arr" such as 800 model weights, with at most 1 of the weights changed.
+//Which weight is changed depends on which GPU thread. Each of them is changed by epsilon in a GPU thread,
+//plus theres 1 where its not changed, so can compute derivative by (lossAfter-lossBefore)/epsilon per dimension.
+//That learning kernel does not compute gradient. It computes loss. Caller combines them.
+//So if theres 800 model weights (not including trainingData which comes after that), theres 801 GPU threads. The last one is with no arr[index] changed.
+//Since arr is a uniform (same for all GPU threads) its not actually changed but in the loops it checks if the index is the one to change
+//and changes it in local memory to that GPU thread. TODO.
+precision highp float;
+//uniform vec2 mouse;
+uniform float arr[${inarrSize}]; //inarr
+uniform float lastRandomVal;
+//TODO gpuThreadId from 0 to 800 (801 of them) if there are 800 model weights, for example. need it as int, not float.
+//But that would be in the learning kernel. This is the prediction kernel so should vary y and x (position on screen),
+//maybe a 480x480 pixel view (it can do smooth curves at any resolution), despite it will be trained on normally 48x48 pixels.
+in vec2 coord;
+out vec4 fragColor;
+void main(){ //function(numInputs, numNodes, numMathOps, arr, optionalReuseRetArray){
+	int square = numNodes**2; //2 triangle arrays stored in a square array. 1 neuralnet layer per node.
+	//int rect = numNodes*numMathOps; //smoothly choose mathOp per node
+	//int expectArrSize = square+rect;
+	//if(arr.length != expectArrSize){
+	//	throw 'Expected arr.length to be '+expectArrSize+' but its '+arr.length;
+	//}
+	//if(arr[0] != 1){
+	//	throw 'arr[0] must always be 1, used as neuralnet bias, but is '+arr[0];
+	//}
+	//let ret = optionalReturnArray || new Float32Array(numNodes);
+	//let ret = optionalReuseRetArray || new Float32Array(numNodes);
+	//float floatEpsilon = ${floatEpsilon};
+	int numInputs = ${glslInt(this.numInputs)};
+	int numNodes = ${glslInt(this.numNodes)};
+	int numMathOps = ${glslInt(this.numMathOps)};
+	float tanhScale = ${glslFloat(options.tanhScale)};
+	float ret[numNodes]; //diag
+	//if(ret.length != numNodes){
+	//	throw 'ret.length must be '+numNodes+' but is '+ret.length;
+	//}
+	//ret[0] = 1; //neuralnet bias
+	for(int n=0; n<numInputs; n++){ //copy visibleNodes/inputs
+		ret[n] = arr[n*numNodes+n];
+	}
+	for(int n=numInputs; n<numNodes; n++){
+		float sumA = 0;
+		float sumB = 0;
+		for(int j=0; j<n; j++){ //sum left n-1 weights, and other is sum top n-1 weights, multiplied by other nodes.
+			float incomingNeuralActivation = ret[j];
+			int indexA = n*numNodes+j;
+			int indexB = j*numNodes+n;
+			//TODO in learning kernel (that computes loss), everywhere arr is read, check if the index equals gpuThreadId and if so add floatEpsilon to value read.
+			float weightA = arr[indexA];
+			float weightB = arr[indexB];
+			//if(indexA == gpuThreadId) weightA += floatEpsilon;
+			//if(indexB == gpuThreadId) weightB += floatEpsilon;
+			sumA += weightA*incomingNeuralActivation;
+			sumB += weightB*incomingNeuralActivation;
+		}
+
+		//TODO add numNodes*numExtraParamsPerNode params after the numNodes**2+numNodes*numMathOps params, instead of these being constant 1.
+		float scaleA = 1.;
+		float scaleB = 1.;
+		float scaleC = 1.;
+
+		//FIXME should this be a parameter, part of the int opcode, to tanh it vs leave it as is or what?
+		//let numA = Math.tanh(sumA);
+		//let numB = Math.tanh(sumB);
+		float numA = ${makeGlslCode_normScalar('sumA')}; //float numA = normScalar(sumA);
+		float numB = ${makeGlslCode_normScalar('sumB')}; //float numB = normScalar(sumB);
+		numA *= scaleA;
+		numB *= scaleB;
+		//arr[i] = MathOp(whichMathOp, numA, numB);
+		float sumOps = 0;
+		int rectOffsetForNode = square+n*numMathOps;
+		${(()=>{
+			let code = '';
+			let line = '\n		';
+			code += line+'float sumOps = 0.;';
+			if(numMathOps != MathOps.length) throw 'numMathOps != MathOps.length';
+			for(let whichMathOp=0; whichMathOp<MathOps.length; whichMathOp++){
+				//let addedMulipliedSinedEtc = MathOp(whichMathOp,0,0);
+				//let normed = ${makeGlslCode_normScalar('addedMulipliedSinedEtc')}; //float normed = normScalar(addedMulipliedSinedEtc);
+				//let opWeightAtNode = arr[rectOffsetForNode+whichMathOp];
+				//sumOps += opWeightAtNode*normed;
+				code += line+'int indexOfWeightOfOp'+whichMathOp+' = rectOffsetForNode+'+whichMathOp+';'
+				code += line+'float weightOfOp'+whichMathOp+' = arr[indexOfWeightOfOp];'
+				code += line+'if(indexOfWeightOfOp'+whichMathOp+' == gpuThreadId) weightOfOp'+whichMathOp+' += floatEpsilon;';
+				code += line+'sumOps += weightOfOp'+whichMathOp+'*'+makeGlslCode_normScalar(MathOps[whichMathOp].glsl('numA','numB'))+';';
+			}
+			return code;
+		})()}
+		//for(int whichMathOp=0; whichMathOp<numMathOps; whichMathOp++){
+		//	float addedMulipliedSinedEtc = MathOp(whichMathOp,numA,numB);
+		//	//if(isNaN(addedMulipliedSinedEtc)){
+		//	//	throw 'addedMulipliedSinedEtc is NaN, MathOp('+whichMathOp+','+numA+','+numB+')';
+		//	//}
+		//	//let normed = Math.tanh(addedMulipliedSinedEtc); //range -1 to 1
+		//	float normed = ${makeGlslCode_normScalar('addedMulipliedSinedEtc')}; //float normed = normScalar(addedMulipliedSinedEtc);
+		//	float opWeightAtNode = arr[rectOffsetForNode+whichMathOp];
+		//	sumOps += opWeightAtNode*normed;
+		//}
+		sumOps *= scaleC;
+		//let neuralActivation = Math.tanh(sumOps); //range -1 to 1
+		let neuralActivation = ${makeGlslCode_normScalar('sumOps')}; //let neuralActivation = normScalar(sumOps);
+		ret[n] = neuralActivation;
+	}
+	//If scalar field, that scalar is ret[ret.length-1]. ret[0] should always be 1. ret aka diag.
+	//After that are inputs. Then temp vars. Then output(s).)
+	//return ret;
+	float returnScalar = ret[numNodes-1];
+	//fragColor = vec4(z.x / (4.0 + diag[2] + -1.9*fromInarr),
+	//	 mouse.x * 0.001, 0.0 + mouse.y * mouse.y * 0.000001, 1.0);
+	//FIXME return just 1 float, not 4. in gpujs returning 4 leads to many Float32Arrays size 4 in a [...].
+	//FIXME there should be 2 glsl kernels, one for prediction and one for learning. The learning one has
+	//an extra loop that sums loss (squared difference of trainingData and observation) and returns that as 1 float.
+	fragColor = vec4(returnScalar, 0., 0., 1.);
+};`;
+};
+
+//the linear instead of squared way, no automatic weightedSums.
+VecField.prototype.run = function(arr){
+	if(arr.length != this.numVars){
+		throw 'Expected arr.length to be '+this.numVars+' but its '+arr.length;
+	}
+	for(let i=this.numInputs; i<this.numVars; i++){
+		let opcode = this.opcodes[i];
+		let ptrA = (opcode>>>slideA)&maskPtrAfterSlide;
+		let ptrB = (opcode>>>slideB)&maskPtrAfterSlide;
+		let whichMathOp = opcode&maskOp;
+		let numA = arr[ptrA];
+		let numB = arr[ptrB];
+		arr[i] = MathOp(whichMathOp, numA, numB);
+	}
+};
+
+//returns a lambda that does the same thing as this.run(arr) when given arr param.
+//This will avoid the need for the switch statement. uses js eval. TODO.
+//TODO use cachedEval code (search for that) from my other code.
+VecField.prototype.compileLinearForCpu = function(arr){
+	throw 'TODO';
+};
+
+//Example: 100 instances of 12 inputs so 1200 numbers. Float32Array in and out.
+//TODO GPU.js optimize. reuse same kernel so its much lower lag after first time.
+//TODO an option to compute derivatives and try variants without copying the memory in,
+//generating most inputs instead, cuz that will be alot faster in gpujs.
+//Returns concat of the outputs as a Float32Array.
+VecField.prototype.runLinearManyOnGPU = function(manyInputs){
+	throw 'TODO';
+};
+
+//This is like a neuralnet but is more generally a forest of weightedSums,
+//then (FIXME might want to make this be part of opcode to choose tanh vs
+//leave sum as is vs other ops, for sumA and sumB) numA=tanh(weightedSumA) and numB=tanh(weightedSumB)
+//instead of numA and numB being directly copied from 2 indexs chosen by the int opcode.
+//So instead of a pointer you get a weightedSum, of all the diagonal indexs below current index.
+//tanh(x) is very near x when x is small, so that seems very general, except might want to scale it
+//during multiply sqrt exp log etc, so I do want the option for it not to always be tanh
+//and for it to be tanh in some and weightedSum as usual in others etc. In that case,
+//opcode should be 3 bytes,
+//that choose 3 mathOps instead of just 1. For the 2 sums and the combining of them.
+//Also, the mathops that use 1 param instead of 2 (such as sine arcsine log are 1, * and + and pow are 2)
+//should have an optimization in CPU (but go ahead and do both in GPU cuz branching is expensive)
+//not to do the weightedSums its not going to use.
+//
+//the arr in the "linear" way to run... arr.length**2==squareArr.length.
+//This is the doubleTriangleNeuralnet form of it, where each mathOp gets 2 tanh (FIXME or just the sum?)
+//of weightedSums, instead of a single number. FIXME might want to combine some both ways in the same VecField?
+//TODO try combos of things like
+//"mul(x,y)=tanh(atanh(x)*atanh(y)) allows mul(a,mul(b,c))=mul(mul(a,b),c) and keeps all numbers in range -1 to 1".
+VecField.prototype.runSquared = function(squareArr){
+	if(squareArr.length != this.numVars**2){
+		throw 'Expected arr.length to be '+this.numVars**2+' but its '+arr.length;
+	}
+	for(let i=this.numInputs; i<this.numVars; i++){
+		let opcode = this.opcodes[i];
+		//ignore cuz its all the lower diagonal indexs: let ptrA = (opcode>>>slideA)&maskPtrAfterSlide;
+		//ignore cuz its all the lower diagonal indexs: let ptrB = (opcode>>>slideB)&maskPtrAfterSlide;
+		let whichMathOp = opcode&maskOp;
+		//let numA = arr[ptrA]; //on diagonal
+		//let numB = arr[ptrB]; //on diagonal
+		let sumA = 0;
+		let sumB = 0;
+		for(let j=0; j<n; j++){ //sum left n-1 weights, and other is sum top n-1 weights, multiplied by other nodes.
+			let incomingNeuralActivation = squareArr[j*side+j];
+			let weightA = squareArr[n*side+j];
+			let weightB = squareArr[j*side+n];
+			sumA += weightA*incomingNeuralActivation;
+			sumB += weightB*incomingNeuralActivation;
+		}
+		//FIXME should this be a parameter, part of the int opcode, to tanh it vs leave it as is or what?
+		let numA = Math.tanh(sumA);
+		let numB = Math.tanh(sumB); //TODO normScalar?
+		arr[i] = MathOp(whichMathOp, numA, numB);
+	}
+};
+/*
+var doubleTriangleNeuralnet = function(nodes, weights){
+	if(nodes.length**2 != weights.length){
+		throw '('+nodes.length+'=nodes.length)**2 != weights.length == '+weights.length;
+	}
+	let side = nodes.length;
+	for(let n=0; n<side; n++){
+		let isInputNode = weights[n*side+n]; //on diagonal. 1 for input node. 0 for internal or output node.
+		let sumA = 0;
+		let sumB = 0;
+		for(let i=0; i<n; i++){ //sum left n-1 weights, and other is sum top n-1 weights, multiplied by other nodes.
+			sumA += weights[n*side+i]*nodes[i];
+			sumB += weights[i*side+n]*nodes[i];
+		}
+		//range -2 to 2. Similar to GRU or LSTM node but simpler and feedforward.
+		let thisNeuralActivation = (Math.tanh(sumA)+1)*Math.tanh(sumB);
+		nodes[n] = nodes[n]*isInputNode + (1-isInputNode)*thisNeuralActivation;
+	}
+};
+*/
+
+/*throw
+`TODO like in ballsBouncingByScalarFieldGradient001.html compute gradient of VecField.numInputs
+by the 1 output (or could be multiple outputs but thats not a scalar field, thats a vector field,
+and scalar field is all I really need for neural qlearning of 3 bouncing balls).
+`;*/
+
+
+//TODO curvefit by rolling ball around aVecField.numInputs and numOutputs is 1 as a scalar field,
+//with momentum and velocity decay, just looking for a low energy (valley/hole) to stop in.
+
+
+
+
+
+
+
+
+//sigmoid is an affine transform of tanh
+var sigmoid = x=>1/(1+Math.exp(-x));
+
+
+TriTriRect.prototype.normRectToRadius = function(targetRadius){
+	if(targetRadius <= 0){
+		throw 'targetRadius='+targetRadius;
+	}
+	for(let node=0; node<this.numNodes; node++){
+		let offset = this.square+node*this.numMathOps;
+		let sumOfSquares = 0;
+		for(let m=0; m<this.numMathOps; m++){
+			sumOfSquares += this.pos[offset+m]**2;
+		}
+		let observedRadius = Math.sqrt(sumOfSquares);
+		if(observedRadius == 0){ //this rarely happens. copy a constant to all of them.
+			let targetAveSquare = (targetRadius**2)/this.numMathOps;
+			let constant = Math.sqrt(targetAveSquare);
+			for(let m=0; m<this.numMathOps; m++){
+				this.pos[offset+m] = constant;
+			}
+		}else{
+			let mul = targetRadius/observedRadius;
+			for(let m=0; m<this.numMathOps; m++){
+				this.pos[offset+m] *= mul;
+			}
+		}
+	}
+};
+
+
+TriTriRect.prototype.reusableDiagArrayA = function(){
+	if(!this.reusableDiagArrayA_){
+		this.reusableDiagArrayA_ = new Float32Array(this.numNodes);
+	}
+	return this.reusableDiagArrayA_;
+};
+
+TriTriRect.prototype.reusableDiagArrayB = function(){
+	if(!this.reusableDiagArrayB_){
+		this.reusableDiagArrayB_ = new Float32Array(this.numNodes);
+	}
+	return this.reusableDiagArrayB_;
+};
+
+TriTriRect.prototype.randomizeSquare = function(){
+	for(let i=0; i<this.square; i++){
+		//would need double loop for 2 triangles, todo: let scale = 1/(1+Math.sqrt(i));
+		this.pos[i] = Math.random()*2-1; //FIXME take ave and stdDev params
+	}
+	this.pos[0] = 1; //neuralnet bias
+	for(let i=1; i<this.numNodes; i++){
+		this.pos[this.diag(i)] = 0;
+	}
+};
+
+TriTriRect.prototype.diag = function(i){
+	return i*(this.numNodes)+i;
+};
+
+TriTriRect.prototype.randomizeRect = function(){
+	let square = this.numNodes**2;
+	let mul = 1/Math.sqrt(this.numMathOps);
+	for(let i=this.square; i<this.size; i++){
+		this.pos[i] = (Math.random()*2-1)*mul;
+		//this.pos[i] = Math.random()/this.numMathOps; //FIXME take ave and stdDev params
+		//this.pos[i] = 0; //FIXME
+	}
+	/*for(let node=0; node<this.numNodes; node++){
+		let randOp = randInt(this.numMathOps);
+		this.pos[this.indexNodeOp(node,randOp)] = 1; //for each node, pic 1 of the ops to make alot more likely than the others
+	}*/
+};
+
+TriTriRect.prototype.indexNodeNode = function(a,b){
+	return this.numNodes*a+b;
+};
+
+TriTriRect.prototype.indexNodeOp = function(node,op){
+	return this.square+this.numMathOps*node+op;
+};
+
+//TriTriRect.picGradient
+
+const ttrInputs = 1+2;
+//const ttrNodes = 10;
+const ttrNodes = 20;
+//const ttrNodes = 30;
+//const ttrNodes = 40;
+//const ttrNodes = 60;
+//const ttrNodes = 150;
+//const ttrNodes = 5;
+//const ttrNodes = 10;
+const ttrMathOps = numMathOps; //could be less if put the most important MathOps first and want smaller model.
+//const ttrMathOps = 12; //FIXME
+const ttrOuts = 1;
+
+//the tritrirect model. TODO i also want a kind of model that may be more efficient in GPU.js
+//cuz of being fewer layers deep and using matmul, instead of 2 triangle arrays,
+//cuz the only way I know of so far to run it in GPUjs is to unroll the triangles into alot of literal GPU code
+//and run that many times in parallel.
+var ttr = new TriTriRect(ttrInputs, ttrNodes, ttrMathOps, ttrOuts);
+ttr.randomizeSquare(); //FIXME add params
+ttr.randomizeRect(); //FIXME add params
+
+const ttrY = ttr.diag(1);
+const ttrX = ttr.diag(2);
+
+//given y and x, which can be in any range (but normally -1 to 1), return the raw output, which is in range -1 to 1 (cuz tanh)
+TriTriRect.prototype.pic = function(y,x){
+	let prevY = this.pos[ttrY];
+	let prevX = this.pos[ttrX];
+	this.pos[ttrY] = y;
+	this.pos[ttrX] = x;
+	let diag = doubleTrianglePlusOnehotRectangleModelForward(this.numInputs, this.numNodes, this.numMathOps, this.pos);
+	//console.log('diag='+JSON.stringify(diag)+' y='+y+' x='+x+' ttr.pos[ttrY]='+this.pos[ttrY]);
+	let output = diag[diag.length-1];
+	this.pos[ttrY] = prevY;
+	this.pos[ttrX] = prevX;
+	return output;
+};
+
+//given ins of size this.numInputs-1, returns outs size numOutputs. FIXME should it be [] or Float32Array?
+//isReturnScalar will return the last diag, even if this.numOuts!=1.
+//If isScalar, then it doesnt allocate any heap memory, except on first call of this TriTriRect.
+TriTriRect.prototype.predict = function(ins, isReturnScalar){
+	if(ins.length != this.numInputs-1){
+		throw 'ins.length='+ins.length+' but expected '+(this.numInputs-1);
+	}
+	let diagForUndo = this.reusableDiagArrayA(); //avoid alloc array
+	let diagForPredict = this.reusableDiagArrayB(); //avoid alloc array
+	for(let i=1; i<this.numInputs; i++){ //copy part of this.pos to diagForUndo, and copy ins into that part of this.pos
+		let diagIndex = i*this.numNodes+i;
+		diagForUndo[i] = this.pos[diagIndex];
+		this.pos[diagIndex] = ins[i-1];
+	}
+	doubleTrianglePlusOnehotRectangleModelForward(this.numInputs, this.numNodes, this.numMathOps, this.pos, diagForPredict);
+	for(let i=1; i<this.numInputs; i++){ //put this.pos back how it was
+		let diagIndex = i*this.numNodes+i;
+		this.pos[diagIndex] = diagForUndo[i];
+	}
+	if(isReturnScalar){
+		return diagForPredict[diagForPredict.length-1];
+	}else{
+		let outs = new Float32Array(this.numOuts);
+		for(let i=0; i<this.numOuts; i++){
+			outs = diagForPredict[ diagForPredict.length-this.numOuts+i];
+		}
+		return outs;
+	}
+};
+
+TriTriRect.prototype.sumOfSquaredError = function(listTrainingData){
+	let sum = 0;
+	if(this.numOuts == 1){
+		for(let trainingData of listTrainingData){
+			let observedOut = this.predict(trainingData.ins);
+			let correctOut = trainingData.outs[0];
+			sum += (observedOut-correctOut)**2;
+		}
+	}else{
+		for(let trainingData of listTrainingData){
+			let observedOuts = this.predict(trainingData.ins);
+			let correctOuts = trainingData.outs;
+			for(let i=0; i<this.numOuts; i++){
+				let observedOut = this.predict(trainingData.ins);
+				let correctOut = trainingData.outs[0];
+				sum += (observedOut-correctOut)**2;
+			}
+		}
+	}
+	return sum;
+};
+
+TriTriRect.prototype.loss = function(listTrainingData){
+	//this.numOuts should equal listTrainingData[eachIndex].outs.length, but I want to allow the case where list is empty and 0 loss.
+	let numDims = listTrainingData.length*this.numOuts;
+	let squaredErr = this.sumOfSquaredError(listTrainingData);
+	let stdDev = Math.sqrt(squaredErr/numDims);
+	return stdDev;
+};
+
+TriTriRect.prototype.lossDerivative = function(listTrainingData, i, optionalAlreadyComputedLossHere){
+	let lossHere = optionalAlreadyComputedLossHere!==undefined ? optionalAlreadyComputedLossHere : this.loss(listTrainingData);
+	let prevPos = this.pos[i];
+	this.pos[i] = prevPos+floatEpsilon;
+	let lossThere = this.loss(listTrainingData);
+	this.pos[i] = prevPos;
+	return (lossThere-lossHere)/floatEpsilon;
+};
+
+//more efficient than 1+this.pos.length calls of lossDerivative cuz reuses "let lossHere = this.loss(listTrainingData);".
+TriTriRect.prototype.lossGradient = function(listTrainingData, useGPU){
+	if(options.do_lastRandomVal){
+		options.lastRandomVal = Math.random();
+	}
+	if(options.doRandomLossGradientInsteadOfActualGradient_toTestGraphicsSpeed){
+		let gradient = new Float32Array(this.pos.length);
+		for(let i=0; i<gradient.length; i++){
+			gradient[i] = (2*Math.random()-1)*.01;
+		}
+		return gradient;
+	}
+	if(useGPU){
+		//let predictor this.getPredictionGLSLKernel();
+		let learner = this.getLearningGLSLKernel();
+		//TODO a Float32Array same size as this.size+1, so if theres 800 model weights thats 801 losses.
+		//The last loss is the neutral one the others subtract.
+		let losses = null;
+		let gradient = new Float32Array(this.pos.length);
+		if(gradient.length+1 != losses.length){
+			throw '('+gradient.length+'=gradient.length)+1 != losses.length = '+losses.length;
+		}
+		let currentLoss = losses[gradient.length]; //last
+		for(let i=0; i<gradient.length; i++){
+			(losses[i]-currentLoss)/floatEpsilon;
+		}
+		throw 'TODO use params of learner object';
+	}else{
+		let lossHere = this.loss(listTrainingData);
+		let gradient = new Float32Array(this.pos.length);
+		//always gives 0 for index 0 cuz thats used for neuralnet bias. FIXME thats not the actual derivative but it will throw if its not that.
+		for(let i=1; i<gradient.length; i++){
+			gradient[i] = this.lossDerivative(listTrainingData, i, lossHere);
+		}
+		return gradient;
+	}
+};
+
+//update this.pos by this.vel, and update this.vel by this.lossGradient.
+//WARNING: this could be very slow if theres more than a few trainingData or if this is more than a very small model.
+//TODO GPU optimize, but even then, its still for small models.
+//This is a kind of neuralnet momentum if options.useNeuralMomentum.
+//Does  decayVelocityPerLearnRate. dt is learnRate.
+TriTriRect.prototype.nextStateLearnByGradient = function(listTrainingData, dt){
+	let lossGradient = this.lossGradient(listTrainingData, options.useGPUIn_lossGradient);
+	let velocityMul = 1-dt*options.decayVelocityPerLearnRate;
+	for(let i=0; i<this.pos.length; i++){
+		if(options.useNeuralMomentum){
+			let accel = -lossGradient[i];
+			this.vel[i] += accel*dt;
+			this.vel[i] *= velocityMul;
+			this.pos[i] += this.vel[i]*dt;
+			//FIXME do energy norm so kineticEnergy+potentialEnergy is constant. Or at least decay velocity. And maybe truncate into range for pos and vel.
+		}else{
+			let accel = -lossGradient[i];
+			this.pos[i] += accel*dt;
+		}
+	}
+	this.pos[0] = 1; //for neural bias to multiply by
+	this.vel[0] = 0;
+};
+
+
+/*
+//sum of squared diffs between correct brightness vs observed brightness. trainingData is a list of DataPoint.
+TriTriRect.prototype.sumOfSquaredError = function(trainingData){
+	let sumOfSquaredError = 0;
+	let diagForUndo = this.reusableDiagArrayA()
+	for(let i=0; i<this.numInputs
+	let diagPredict = this.reusableDiagArrayB();
+	for(let dataPoint of trainingData){
+		
+	}
+};*/
+
+/*
+//given y and x in any range, though normal range is -1 to 1 (cuz ttr uses alot of tanh), returns brightness 0 to 1 (cuz of rule110 graphics system).
+var brightnessAtYXTtr = function(y,x,ttr){
+	let prevY = ttr.pos[ttrY];
+	let prevX = ttr.pos[ttrX];
+	ttr.pos[ttrY] = y;
+	ttr.pos[ttrX] = x;
+	let diag = doubleTrianglePlusOnehotRectangleModelForward(ttr.numInputNodes, ttr.numNodes, ttr.numMathOps, ttr.pos);
+	let output = diag[diag.length-1];
+	let normedOutput = sigmoid(output); //range 0 to 1, so it displays well in the rule110 graphics system (TODO) copied and modified from the other file
+	ttr.pos[ttrY] = prevY;
+	ttr.pos[ttrX] = prevX;
+	return normedOutput;
+};*/
+
+var displayHeight = function(){
+	return rule110SquareSide;
+};
+
+var displayWidth = function(){
+	return rule110SquareSide;
+};
+
+var displayIndex = function(y,x){
+	return displayWidth()*Math.floor(y)+Math.floor(x); //FIXME truncate y and x range
+};
+
+var displayPixelYXBright = function(y, x, bright){
+	rule110StatePosition[displayIndex(y,x)] = bright;
+};
+
+/* Replacing this with new DataPoint([y,x],[val],1);
+//a force pushed on a scalar field to bend it into a different scalar field. (val,weight) is like TruthValue in opencog.
+//val is displayed as brightness (may be curved by sigmoid etc), at least in the scalar field, though this Bender (this object)
+//might not be displayed, just affect how it bends. y and x are the first 2 inputs. If weight is 0, this has no effect.
+var Bender = function(ins, outs, weight){
+	this.y = y;
+	this.x = x;
+	this.val = val;
+	this.weight = weight;
+};
+*/
+
+//Example: new DataPoint([y,x],[val],1); ins.length==TriTriRect.numInputs-1.
+//outs.length can be anything up to TriTriRect.numNodes-TriTriRect.numInputs, and is 1 if its a scalarField.
+var DataPoint = function(ins, outs, optionalWeight){
+	this.ins = ins;
+	this.outs = outs;
+	this.weight = optionalWeight!==undefined ? optionalWeight : 1;
+};
+DataPoint.prototype.size = function(){
+	return this.ins.length+this.outs.length;
+};
+
+//This is used when ins.length==2 and outs.length==1, to display y and x approximately as snapped onto the grid instead of continuous position.
+DataPoint.prototype.displayYXBright = function(){
+	if(this.ins.length != 2 || this.outs.length != 1){
+		throw 'Wrong size';
+	}
+	let y = this.ins[0]; //normally range -1 to 1
+	let x = this.ins[1];
+	let gridY = Math.floor(options.displayOutputFromY+options.displayOutputHeight*(.5+.5*y));
+	let gridX = Math.floor(options.displayOutputFromX+options.displayOutputHeight*(.5+.5*x));
+	let bright = sigmoid(this.outs[0]);
+	console.log('y'+y+' x'+x+' bright'+bright);
+	displayPixelYXBright(gridY, gridX, bright);
+};
+
+const circle = 2*Math.PI;
+
+//var benders = [];
+var trainingData = [];
+
+/*var addSimpleTrainingData = function(){
+	let end = 20;
+	for(let i=0; i<end; i++){
+		let fractionI = i/end;
+		let angle = fractionI*circle;
+		let radiusA = .6;
+		let radiusB = .45;
+		let valA = 1; //display as bright
+		let valB = -1; //display as dark
+		let weightA = 1;
+		let weightB = 1.5; //cuz smaller circle
+		//benders.push(new Bender(radius*Math.sin(angle), radius*Math.cos(angle), valA, weightA);
+		//benders.push(new Bender(radius*Math.sin(angle), radius*Math.cos(angle), valB, weightB);
+		trainingData.push(new DataPoint([radiusA*Math.sin(angle),radiusA*Math.cos(angle)], [valA], weightA));
+		trainingData.push(new DataPoint([radiusB*Math.sin(angle),radiusB*Math.cos(angle)], [valB], weightB));
+	}
+};*/
+
+/*var addSimpleTrainingData = function(){
+	let end = 20;
+	for(let i=0; i<end; i++){
+		let fractionI = i/end;
+		let angle = fractionI*circle;
+		let radius = .6;
+		let val = Math.sin(angle*5); //display as bright
+		let weight = 1;
+		trainingData.push(new DataPoint([radius*Math.sin(angle),radius*Math.cos(angle)], [val], weight));
+	}
+};*/
+
+var addSimpleTrainingData = function(){
+	let end = 20;
+	for(let i=0; i<end; i++){
+		let y = Math.random()*2-1;
+		let x = Math.random()*2-1;
+		let val = Math.random()<.5 ? 1 : -1;
+		let weight = 1;
+		trainingData.push(new DataPoint([y,x], [val], weight));
+	}
+};
+
+/*var addSimpleTrainingData = function(){
+	let end = 20;
+	for(let i=0; i<end; i++){
+		let fractionI = i/end;
+		let angle = fractionI*circle;
+		let radius = .6;
+		let y = radius*Math.sin(angle);
+		let x = radius*Math.cos(angle);
+		//let val = Math.sin(angle*5); //display as bright
+		let val = y<0 ? -1 : 1;
+		let weight = 1;
+		trainingData.push(new DataPoint([y,x], [val], weight));
+	}
+};*/
+
+addSimpleTrainingData();
+
+//var ScalarFieldOf
+
+/*const rule110SquareSide = 128;
+
+//var rule110State = new Tensor([rule110SquareSide,rule110SquareSide]);
+var rule110StatePosition = new Float64Array(rule110SquareSide**2);
+*/
+var displayTtr = function(ttr){
+	let outputFromY = options.displayOutputFromY; //from this to ttr.numNodes-1
+	let outputFromX = options.displayOutputFromX;
+	let outputHeight = options.displayOutputHeight; //any chosen size, but make sure it fits in displayHeight()
+	let outputWidth = options.displayOutputWidth;
+	for(let oy=0; oy<outputHeight; oy++){
+		let oBifractionY = oy/outputHeight*2-1;
+		for(let ox=0; ox<outputWidth; ox++){
+			let oBifractionX = ox/outputWidth*2-1;
+			//let bright = brightnessAtYXTtr(oBifractionY, oBifractionX, ttr);
+			let bright = sigmoid(ttr.pic(oBifractionY, oBifractionX));
+			if(options.in_displayTtr_displayRandomGraphicsToShowWhereStuffIs) bright = .6+.1*Math.random();
+			displayPixelYXBright(outputFromY+oy, outputFromX+ox, bright);
+		}
+	}
+
+	let squareFromY = outputFromY+outputHeight+10;
+	let squareFromX = outputFromX;
+	for(let squareY=0; squareY<ttr.numNodes; squareY++){
+		for(let squareX=0; squareX<ttr.numNodes; squareX++){
+			let bright = sigmoid(ttr.pos[ttr.indexNodeNode(squareY,squareX)]);
+			if(options.in_displayTtr_displayRandomGraphicsToShowWhereStuffIs) bright = .4+.1*Math.random();
+			displayPixelYXBright(squareFromY+squareY, squareFromX+squareX, bright);
+		}
+	}
+
+	let rectFromY = squareFromY;
+	let rectFromX = squareFromX+ttr.numNodes+10;
+	for(let rectY=0; rectY<ttr.numNodes; rectY++){
+		for(let rectX=0; rectX<ttr.numMathOps; rectX++){ //FIXME is numMathOps vs numNodes reversed here?
+			let bright = sigmoid(ttr.pos[ttr.indexNodeOp(rectY,rectX)]);
+			if(options.in_displayTtr_displayRandomGraphicsToShowWhereStuffIs) bright = .2+.1*Math.random();
+			displayPixelYXBright(rectFromY+rectY, rectFromX+rectX, bright);
+		}
+	}
+};
+
+
+
+
+
+
+
+
+//////////////////////////////////////////////
+//This part copied then modified from TuringCompleteRule110Quasicrystal4SATSolverYouPaintWith2MouseButtons001.html
+//Im planning to remove the rule110 part from the copy and instead use it for displaying 3 rectangles of scalars:
+//a normal rectangle area where (y,x)->brightness, the numNodes**2 square, and the numNodes*numMathOps rectangle.
+
+
+
+
+
+
+
+
+
+
+
+
+
+//display and paint rule110 in this many pixels tall/wide.
+//const rule110SquareSide = 64;
+const rule110SquareSide = 128;
+
+//var rule110State = new Tensor([rule110SquareSide,rule110SquareSide]);
+var rule110StatePosition = new Float64Array(rule110SquareSide**2);
+
+var rule110StateVelocity = new Float64Array(rule110StatePosition.length);
+
+//per dt
+var velocityDecay = .1;
+
+//a 4 dimensional scalar field. TODO manually design this, or use a neural net to learn it?
+//Basically theres 16 possible combos of 4 bits, but as scalars its a smooth 4d field
+//that has valleys in those 16 places and hills everywhere else. Smaller hill between the 2 valleys
+//of a bit being 0 or 1, and big hill side that it will never cross as it goes out of bounds
+//(less than 0 or more than 1). The 4sat part of it is that only 8 of the 16 combos are allowed,
+//so make it higher in the other 8 that are not allowed. Will likely have to fiddle with this
+//after see it rolling around the state space on screen which will appear like a neuralnet
+//trying to learn to make what you paint look like rule110 (1d space, 1d time)
+//except its not a neuralnet. Its a convfield. The model is not a sigmoid or tanh or relu etc of weightedSum.
+//The model is a small scalar field summed as centered at each pixel.
+var rule110ConvFunc = (left,self,right,down)=>{
+	let sum = 0;
+	if(left < 0) sum += left**2;
+	if(left > 1) sum += (left-1)**2;
+	if(self < 0) sum += self**2;
+	if(self > 1) sum += (self-1)**2;
+	if(right < 0) sum += right**2;
+	if(right > 1) sum += (right-1)**2;
+	if(down < 0) sum += down**2;
+	if(down > 1) sum += (down-1)**2;
+
+	//sum += (left-self)**2 + (right-down)**2; //arbitrary experiment
+
+	//https://en.wikipedia.org/wiki/Rule_110
+	//Current pattern           111 110 101 100 011 010 001 000
+	//New state for center cell  0   1   1   0   1   1   1   0
+	let notLeft = 1-left;
+	let notSelf = 1-self;
+	let notRight = 1-right;
+	let notDown = 1-down;
+	sum += (left*self*right*down)**2; //111. exclude 111_1 cuz allow 111_0.
+	sum += (left*self*notRight*notDown)**2; //110. exclude 110_0 cuz allow 110_1.
+	sum += (left*notSelf*right*notDown)**2; //101 allow 1
+	sum += (left*notSelf*notRight*down)**2; //100 allow 0
+	sum += (notLeft*self*right*notDown)**2; //011 allow 1
+	sum += (notLeft*self*notRight*notDown)**2; //010 allow 1
+	sum += (notLeft*notSelf*right*notDown)**2; //001 allow 1
+	sum += (notLeft*notSelf*notRight*down)**2; //000 allow 0
+	
+	return sum;
+
+	//return (self-.5)**2; //FIXME this is just a test to see if it goes gray.
+};
+
+//Leave a 1 pixel border on all sides so dont cross the edge of the state square.
+var rule110ConvFuncAtYX = (state,y,x)=>{
+	let left = state[y*rule110SquareSide+(x-1)];
+	let self = state[y*rule110SquareSide+x];
+	let right = state[y*rule110SquareSide+x+1];
+	let down = state[(y+1)*rule110SquareSide+x];
+	return rule110ConvFunc(left,self,right,down);
+};
+
+//const epsilon = .00001;
+const doubleEpsilon = 2**-20;
+const floatEpsilon = 2**-12;
+
+//Leave a 2 pixel border on all sides so dont cross the edge of the state square.
+//This is the fast way to compute gradient. The slow way is rule110GradientAtYX_theSlowWay. Test it by comparing that. Should be same except roundoff.
+var rule110GradientAtYX = (state,y,x)=>{
+	let myIndex = y*rule110SquareSide+x;
+	let myVal = state[myIndex];
+	let myValPlusEpsilon = myVal+floatEpsilon; //https://en.wikipedia.org/wiki/Fundamental_theorem_of_calculus
+	let noChange_imLeft = rule110ConvFuncAtYX(state,y,x+1);
+	let noChange_imSelf = rule110ConvFuncAtYX(state,y,x);
+	let noChange_imRight = rule110ConvFuncAtYX(state,y,x-1);
+	let noChange_imDown = rule110ConvFuncAtYX(state,y-1,x); //y+1 is down if im self. Im the down viewed from y-1.
+	state[myIndex] = myValPlusEpsilon; //TODO dont modify state. call rule110ConvFunc directly on various 4 scalars instead.
+	let plusEpsilon_imLeft = rule110ConvFuncAtYX(state,y,x+1);
+	let plusEpsilon_imSelf = rule110ConvFuncAtYX(state,y,x);
+	let plusEpsilon_imRight = rule110ConvFuncAtYX(state,y,x-1);
+	let plusEpsilon_imDown = rule110ConvFuncAtYX(state,y-1,x); //y+1 is down if im self. Im the down viewed from y-1.
+	state[myIndex] = myVal;
+	let noChangeFieldPart = noChange_imLeft+noChange_imSelf+noChange_imRight+noChange_imDown;
+	let plusEpsilonFieldPart = plusEpsilon_imLeft+plusEpsilon_imSelf+plusEpsilon_imRight+plusEpsilon_imDown;
+	let fieldChange = plusEpsilonFieldPart-noChangeFieldPart;
+	let gradient = fieldChange/floatEpsilon;
+	return gradient;
+};
+
+var indexYX = (y,x)=>(y*rule110SquareSide+x);
+
+//sums the whole energy across the state, before and after adding epsilon to (y,x)'s position in state (then puts it back).
+var rule110GradientAtYX_theSlowWay = (state,y,x)=>{
+	let index = indexYX(y,x);
+	let noChange_height = rule110ScalarField(state);
+	let myVal = state[index];
+	let myValPlusEpsilon = myVal+floatEpsilon;
+	state[index] = myValPlusEpsilon;
+	let plusEpsilon_height = rule110ScalarField(state);
+	state[index] = myVal; //put state back how it was
+	return (plusEpsilon_height-noChange_height)/floatEpsilon;
+};
+
+var testGradients = ()=>{
+	let randomState = new Float64Array(rule110SquareSide**2);
+	randomizeState(randomState);
+	let maxDiff = 0;
+	//let maxFastGradient = 0;
+	//let maxSlowGradient = 0;
+	//for(let y=2; y<rule110SquareSide-2; y++){
+
+	/*
+	https://twitter.com/benrayfield/status/1648126027330211842/photo/1
+	It computes calculus gradients sparsely nomatter how many dimensions.
+	If had million dimensions (like neural painting 100x100x100 minecraft-like conways game of life),
+	derivative in each dimension doesnt check all 100x100x100, just does position vs position+epsilon in near cells
+	*/
+	
+	/*
+	//FIXME it seems to differ in the gradients near the borders but be almost the same (except roundoff) everywhere else.
+	y2 x52 fastGradient=-0.277733256337509 slowGradient=-0.7224725322885205 diff=0.4447392759510115
+	ConvfieldDemo3.html:152 y2 x53 fastGradient=2.333777490415301 slowGradient=0.8815183434762729 diff=1.4522591469390278
+	ConvfieldDemo3.html:152 y2 x54 fastGradient=0.31560389558982216 slowGradient=-0.317250032821903 diff=0.6328539284117252
+	ConvfieldDemo3.html:152 y2 x55 fastGradient=1.078950811728152 slowGradient=0.15006259559413593 diff=0.9288882161340162
+	ConvfieldDemo3.html:152 y2 x56 fastGradient=0.3531722215011079 slowGradient=-0.39714111039756966 diff=0.7503133318986775
+	ConvfieldDemo3.html:152 y2 x57 fastGradient=-0.3156030984996505 slowGradient=-0.6171976224322862 diff=0.30159452393263564
+	ConvfieldDemo3.html:152 y2 x58 fastGradient=2.960077159297469 slowGradient=0.9781205164927086 diff=1.9819566428047604
+	ConvfieldDemo3.html:152 y2 x59 fastGradient=2.7677756098132273 slowGradient=0.7841213289339065 diff=1.9836542808793207
+	ConvfieldDemo3.html:152 y2 x60 fastGradient=0.16167112688592056 slowGradient=-0.7593852387799415 diff=0.921056365665862
+	ConvfieldDemo3.html:152 y2 x61 fastGradient=1.0276074649318012 slowGradient=0.08509235840392647 diff=0.9425151065278747
+	ConvfieldDemo3.html:152 y3 x2 fastGradient=-1.820776016958625 slowGradient=-1.9068868368776746 diff=0.08611081991904967
+	ConvfieldDemo3.html:152 y3 x3 fastGradient=-0.951113023417438 slowGradient=-0.9511130201644845 diff=3.2529534621517087e-9
+	ConvfieldDemo3.html:152 y3 x4 fastGradient=0.6942922322505928 slowGradient=0.6942922311736764 diff=1.0769163338864018e-9
+	ConvfieldDemo3.html:152 y3 x5 fastGradient=0.07435765214947043 slowGradient=0.07435765496666136 diff=2.8171909249863347e-9
+	ConvfieldDemo3.html:152 y3 x6 fastGradient=0.20519869858848236 slowGradient=0.205198699632092 diff=1.0436096431476471e-9
+	ConvfieldDemo3.html:152 y3 x7 fastGradient=-1.1899204198417834 slowGradient=-1.1899204196197388 diff=2.220446049250313e-10
+	ConvfieldDemo3.html:152 y3 x8 fastGradient=-1.2161471216631803 slowGradient=-1.2161471204308327 diff=1.2323475573339238e-9
+	ConvfieldDemo3.html:152 y3 x9 fastGradient=-0.5184165823401976 slowGradient=-0.5184165786431549 diff=3.6970426720017713e-9
+	ConvfieldDemo3.html:152 y3 x10 fastGradient=0.4517792568048406 slowGradient=0.4517792604019632 diff=3.597122599785507e-9
+	*/
+	
+	console.log('FIXME it seems to differ in the gradients near the borders but be almost the same (except roundoff) everywhere else.');
+	for(let y=3; y<rule110SquareSide-3; y++){
+		//for(let x=2; x<rule110SquareSide-2; x++){
+		for(let x=3; x<rule110SquareSide-2; x++){
+			let fastGradient = rule110GradientAtYX(randomState,y,x);
+			if(isNaN(fastGradient)) throw 'fastGradient is NaN at y'+y+' x'+x;
+			let slowGradient = rule110GradientAtYX_theSlowWay(randomState,y,x);
+			if(isNaN(slowGradient)) throw 'slowGradient is NaN at y'+y+' x'+x;
+			let diff = Math.abs(fastGradient-slowGradient);
+			console.log('y'+y+' x'+x+' fastGradient='+fastGradient+' slowGradient='+slowGradient+' diff='+diff);
+			maxDiff = Math.max(maxDiff, diff);
+			if(diff > floatEpsilon){
+				throw 'Gradient is computed wrong. fastGradient='+fastGradient+' and slowGradient='+slowGradient+' at y'+y+' x'+x+' in a randomState, but they should be the same except roundoff.'
+			}
+		}
+	}
+	console.log('testGradients tests pass. The fast way of computing gradient gives the same answer (except roundoff) as the slow way. maxDiff='+maxDiff+' but FIXME make it do so closer to the border, as the gradients were differing 2 pixels away but 3 or more pixels away and it works.');
+};
+
+//a function of rule110SquareSide*rule110SquareSide scalars (pixel brightnesses) to 1 scalar (potential-energy),
+//that the state space rolls along (with momentum and a little friction) to find lower energy states
+//which better solve the convolutional 4SAT constraints centered at each pixel.
+//The state param is a Float64Array of size rule110SquareSide*rule110SquareSide.
+var rule110ScalarField = state=>{
+	let field = 0;
+	for(let y=2; y<rule110SquareSide-2; y++){ //FIXME? exclude a 2 pixel border on all 4 sides so the 4-SAT doesnt go out of range.
+		for(let x=2; x<rule110SquareSide-2; x++){
+			field += rule110ConvFuncAtYX(state,y,x);
+		}
+	}
+	return field;
+};
+
+//modifies state. in other code, just use the inside of it other than that 2 pixel thick border on all 4 sides.
+var zeroOutA2PixelBorder = state=>{
+	for(let y=0; y<rule110SquareSide; y++){
+		for(let x=0; x<rule110SquareSide; x++){
+			if(x<2 || x>=rule110SquareSide-2 || y<2 || y>=rule110SquareSide-2){
+				state[y*rule110SquareSide+x] = 0;
+			}
+		}
+	}
+};
+
+//modifies state, but not the parts on 2 pixel border on all 4 sides.
+var randomizeState = state=>{
+    for(let y=2; y<rule110SquareSide-2; y++){
+		for(let x=2; x<rule110SquareSide-2; x++){
+			state[y*rule110SquareSide+x] = Math.random();
+		}
+	}
+};
+
+if(options.randomizeRule110StateOnce){
+	randomizeState(rule110StatePosition);
+}
+zeroOutA2PixelBorder(rule110StatePosition);
+
+var gradientVec = state=>{
+    let gradient = new Float64Array(state.length);
+    for(let y=2; y<rule110SquareSide-2; y++){
+		for(let x=2; x<rule110SquareSide-2; x++){
+			gradient[y*rule110SquareSide+x] = rule110GradientAtYX(state,y,x);
+		}
+	}
+    return gradient;
+};
+
+//updates rule110StatePosition and rule110StateVelocity.
+//dt is change in time, but u can just give it arbitrary number like .01 for now.
+//TODO energy norming so it doesnt get more and more jumpy until getting too fast, or too slow crawls to a halt.
+//TODO Do that thing like position**2 + velocity**2 = constant in that sparseDoppler experiment i did with microphone
+//but more generally using the scalarField as potentialEnergy.
+var nextStateRule110 = function(dt){
+	if(options.useUIControls){
+		uiControlsPaintOntoState(rule110StatePosition,rule110StateVelocity);
+	}
+    let gradient = gradientVec(rule110StatePosition);
+	let mulVelocity = Math.max(0,Math.min(1-dt*velocityDecay,1));
+    for(let i=0; i<rule110StatePosition.length; i++){
+        rule110StateVelocity[i] -= gradient[i]*dt; //FIXME is that right? divide by a constant? Squared? Sqrt? Of what is it?
+		rule110StateVelocity[i] *= mulVelocity;
+        //TODO velocity decay
+        rule110StatePosition[i] += rule110StateVelocity[i]*dt;
+    }
+};
+
+
+//https://github.com/benrayfield/jsutils/blob/master/src/FullScreenCanvasPrototype.html
+
+//Ben F Rayfield offers this code as opensource MIT license
+
+//byte offsets for ByteRect, canvas, etc, in js.
+const RED = 0, GREEN = 1, BLUE = 2, ALPHA = 3;
+
+var FullScreenCanvas = function(parentDom){ //FullScreenCanvas opensource MIT licensed by Ben F Rayfield
+	if(parentDom === undefined) parentDom = document.body;
+	this.dom = document.createElement('canvas');
+	//TODO z order, in front of everything else.
+	//this.dom = document.getElementById('canv'); //FIXME remove this line, use createElement instead.
+	this.context = null;
+	this.imageData = null;
+	this.pixels = null;
+	this.byteRect = null;
+	parentDom.appendChild(this.dom);
+	this.dom.style.position = 'absolute';
+	this.dom.style.left = '0px';
+	this.dom.style.top = '0px';
+	
+	this.resizeCanvas = function(){
+		if(this.dom.width != window.innerWidth) this.dom.width = window.innerWidth;
+		if(this.dom.height != window.innerHeight) this.dom.height = window.innerHeight;
+	};
+	
+	//TODO optimize, if you're not reading from the canvas, maybe can skip parts of this or only call this once?
+	this.beforePaint = function(){
+		if(this.dom == null) throw 'No canvas';
+		
+		//this.context = this.dom.getContext('2d');
+		//cuz got this warning 2023-9-2: ForestCurveFit004.html:1503 Canvas2D: Multiple readback operations using getImageData
+		//are faster with the willReadFrequently attribute set to true.
+		//See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently
+		this.context = this.dom.getContext('2d', {willReadFrequently: true});
+
+		//console.log('this.dom.width = '+this.dom.width);
+		this.imageData = this.context.getImageData(0, 0, this.dom.width, this.dom.height);
+		this.pixels = this.imageData.data;
+		this.byteRect = new ByteRect(this.pixels, this.dom.height, this.dom.width);
+	};
+	
+	//call this after modify byteRect.bytes which contains pixel colors to write to Canvas.
+	this.afterPaint = function(){
+		if(this.dom == null) throw 'No canvas';
+		//this.context.drawImage(this.dom, 0, 0, this.dom.width, this.dom.height);
+		this.context.putImageData(this.imageData, 0, 0);
+	};
+	
+	this.removeFromScreen = function(){
+		this.dom.remove();
+		this.dom = null;
+		this.context = null;
+		this.imageData = null;
+		this.pixels = null;
+		this.byteRect = null;
+	};
+	
+	this.resizeCanvas();
+	this.beforePaint();
+};
+
+var ByteRect = function(bytes, height, width){ //ByteRect opensource MIT licensed by Ben F Rayfield (has more funcs other places)
+	this.bytes = bytes;
+	this.height = height;
+	this.width = width;
+};
+
+var canv = null;
+
+//TODO use performance object like in my other js code. it has more digits of precision than Date.now().
+var time = ()=>Date.now()*.001; //utc seconds
+
+var randByte = ()=>Math.floor(Math.random()*256);
+
+var pixelsPerCell = 6;
+
+var sigmoid = x=>1/(1+Math.exp(-x));
+
+var countDt = 0;
+
+var displayGpuTestAndNothingElse = function(byteRect){
+	//countDt+=.01; //FIXME
+	countDt = (countDt+.05)%(2*Math.PI); //FIXME
+	let by = byteRect.bytes;
+	let h = byteRect.height;
+	let w = byteRect.width;
+	/*let floatsFromGpu = tinyGlsl.simple(
+		`int cycles = 100;
+		//for(int c=0; c<cycles; c++){
+		//}
+		ret = .5+.5*sin(float(id)*.1+44.*par[0]);
+		//ret = .3;
+		`,
+		Float32Array.of(countDt,2,3,4), //TODO pass what numbers in? mandelbrot fractal params and 2d affine transform? 3d fractal params? etc
+		h,
+		w
+		//1000000 //10000 //TODO h*w
+	);*/
+	let floatsFromGpu = tinyGlsl.simple(
+		`int cycles = 30;
+		//vec2 add = vec2(.1, -.7);
+		//vec2 state = vec2((float(idx)/float(idw)*2.-1.)*1.2, (float(idy)/float(idh)*2.-1.)*1.2);
+		vec2 add = vec2((float(idx)/float(idw)*2.-1.)*1.2+sin(par[0])*.3, (float(idy)/float(idh)*2.-1.)*1.2);
+		vec2 state = vec2(0., 0.);
+		for(int c=0; c<cycles; c++){
+			state = vec2(state.x*state.x - state.y*state.y, 2.*state.x*state.y) + add; //state^2 + add
+		}
+		float radius = isnan(state.x+state.y) ? 1000000000. : length(state);
+		//float radius = isnan(state.x) ? 1. : 0.length(state);
+		//ret = 5./(5.+radius);
+		//ret = .3/(.3+radius);
+		//ret = float(idy)*.001;
+		//ret = .5;
+		//ret = 2./(2.+.005*pow(1.5,14.*radius));
+		//ret = par[0];
+		//ret = 1./(1.+radius)*2.-1.;
+		//ret = 1.-1./(1.+3.2*radius);
+		//ret = radius;
+		//ret = isnan(state.y) ? 1. : 0.;
+		ret = 1./(1.+3.2*radius);
+		`,
+		Float32Array.of(countDt,2,3,4), //TODO pass what numbers in? mandelbrot fractal params and 2d affine transform? 3d fractal params? etc
+		h,
+		w
+		//1000000 //10000 //TODO h*w
+	);
+	//if(floatsFromGpu.length != h*w) throw 'floatsFromGpu.length='+floatsFromGpu.length+' but h*w='+h*w;
+	let offset = 0;
+	for(let i=0; i<floatsFromGpu.length; i++){
+		let offset = i<<2;
+		let bright = Math.max(0, Math.min(floatsFromGpu[i]*256, 255));
+		//let bright = Math.max(0, Math.min(Math.random()*256, 255));
+		by[offset+RED] = by[offset+GREEN] = by[offset+BLUE] = bright;
+		by[offset+ALPHA] = 255; //visible
+	}
+};
+
+var doPageTransitioningGraphics = function(dt, age, byteRect){
+
+	if(options.displayGpuTestAndNothingElse){
+		displayGpuTestAndNothingElse(byteRect);
+	}else{
+		displayTtr(ttr);
+		if(options.displayTrainingData){
+			for(let dataPoint of trainingData){
+				dataPoint.displayYXBright();
+			}
+		}
+
+		/*for(let i=0; i<byteRect.bytes.length; i+=4){
+			byteRect.bytes[i+RED] = randByte();
+			byteRect.bytes[i+GREEN] = randByte();
+			byteRect.bytes[i+BLUE] = randByte();
+			byteRect.bytes[i+ALPHA] = 255;
+		}*/
+
+		if(options.enableRule110Physics){
+			nextStateRule110(dt*options.speed);
+		}
+		
+		if(options.learnRateFor_nextStateLearnByGradient){
+			let learnRate = options.learnRateFor_nextStateLearnByGradient; //FIXME multiply by actual time dt?
+			console.log('learnRate aka dt ='+learnRate);
+			ttr.nextStateLearnByGradient(trainingData, learnRate);
+		}
+		
+		if(options.normRectToRadius !== undefined){
+			ttr.normRectToRadius(options.normRectToRadius);
+		}
+
+		if(options.enableRule110Physics){
+			for(let y=0; y<rule110SquareSide; y++){
+				for(let x=0; x<rule110SquareSide; x++){
+					let positionInThatDimension = rule110StatePosition[y*rule110SquareSide+x];
+					let red = Math.floor(sigmoid(positionInThatDimension*4-2)*255.9999); //0..255
+					let green = red;
+					let blue = green;
+					let pixYStart = y*pixelsPerCell;
+					let pixXStart = x*pixelsPerCell;
+					for(let pixY=pixYStart; pixY<(pixYStart+pixelsPerCell); pixY++){
+						for(let pixX=pixXStart; pixX<(pixXStart+pixelsPerCell); pixX++){
+							let i = (pixY*byteRect.width+pixX)*4;
+							byteRect.bytes[i+RED] = red;
+							byteRect.bytes[i+GREEN] = green;
+							byteRect.bytes[i+BLUE] = blue;
+							byteRect.bytes[i+ALPHA] = 255;
+						}
+					}
+				}
+			}
+		}
+	}
+};
+
+var uiControlsPaintOntoState = (statePosition,stateVelocity)=>{
+	let index = indexYX(controls.mouseYCell, controls.mouseXCell);
+	if(controls.mouseButton0){ //left mouse button
+		statePosition[index] = 1; //paint white
+		stateVelocity[index] = 0;
+	}else if(controls.mouseButton2){ //right mouse button
+		statePosition[index] = 0; //paint black
+		stateVelocity[index] = 0;
+	}
+};
+
+var timeStarted = time();
+
+var prevTime = timeStarted;
+
+var controls = {mouseXCell: 0, mouseYCell: 0, mouseButton0: 0, mouseButton2: 0};
+
+var nextState = function(){
+	if(canv == null){
+		canv = new FullScreenCanvas();
+		canv.dom.addEventListener('mousemove', event=>{
+			controls.mouseYCell = Math.max(0, Math.min(Math.floor(event.clientY/pixelsPerCell), rule110SquareSide-1));
+			controls.mouseXCell = Math.max(0, Math.min(Math.floor(event.clientX/pixelsPerCell), rule110SquareSide-1));
+		});
+		canv.dom.addEventListener('mousedown', event=>{
+			controls['mouseButton'+event.button] = 1;
+		});
+		canv.dom.addEventListener('mouseup', event=>{
+			controls['mouseButton'+event.button] = 0;
+		});
+		canv.dom.addEventListener('contextmenu', event=>event.preventDefault()); //prevent right click popup menu from canvas, so that button paints black instead
+	}
+	let now = time();
+	let age = now-timeStarted;
+	let dt = Math.max(0, Math.min(now-prevTime, .2));
+	prevTime = now;
+	canv.beforePaint();
+	doPageTransitioningGraphics(dt, age, canv.byteRect);
+	canv.afterPaint();
+	setTimeout(nextState, 1);
+};
+
+window.onload = ()=>{
+	let glslCode = ttr.makeGlslCode_doubleTrianglePlusOnehotRectangleModelForward();
+	console.log('glslCode=\n'+glslCode);
+	nextState();
+};
+
+</script>

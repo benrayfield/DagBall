@@ -1,0 +1,164 @@
+2023-12-9-10a apeV2[[[
+floatVal //literal
+i%s //literal
+$
+float
+%
+par
+loc
+big
+parMem
+locMem
+bigMem
+parlocMem
+locparMem
+id
+doLast
+do
+oo
+iftri
+2pow
+pow
+copy
+exceptLast
+i+1
+int
+size
+imod
+i/
+i-
+i+
+listLoop
+i==
+*
+*=
++=
++
+-
+/
+**
+sigmoid
+=
+ptr
+parPtr
+locPtr
+bigPtr
+hypot
+less
+more
+max
+min
+atan
+?:
+xtanh
+mod
+return
+sin
+exp
+?
+@
+funcReturn
+]]]
+
+
+
+Organizing them by number of params. some are vararg. trying to define it as 2 childs each and 1 type and up to 1 name each so can generate this code:
+...
+
+EXTERN:
+$ //needname
+% //needname
+id
+
+LITERAL:
+floatVal //literal
+i%s //literal
+
+0ARG:
+par
+loc
+big
+
+0OR1ARG:
+int //needname
+
+1ARG:
+float //needname
+2pow
+xtanh
+exceptLast
+sigmoid
+size
+copy
+i+1
+funcReturn
+
+1OR2ARG:
+i-
+-
+atan
+
+1OR2OR3OR4ARG:
+hypot //(hypot a (hypot b (hypot c d)))
+
+1OR4ARG:
+return
+
+2ARG:
+=
+i/
+max
+min //(min a b)
+/ //(/ a b)
+** //(** a b)
+i==
+pow
+sin
+exp
+less
+more
+imod
+mod
+*=
++=
+
+3ARG:
+?:
+iftri
+
+VARARGATLEAST1:
+? //needname
+@ //needname
+
+VARARGATLEAST4:
+listLoop //(listLoopC (listLoopB iter (listLoopA beforeEach afterEach)) loopBody)... or something like that?
+
+VARARG:
+parPtr //(parPtr theMem (pt (pt sizeA sizeB) sizeC))
+locPtr //(locPtr theMem (pt (pt sizeA sizeB) sizeC))
+bigPtr //(bigPtr theMem (pt (pt sizeA sizeB) sizeC))
+ptr //[theMem (pt (pt sizeA sizeB) sizeC)]
+parMem //needname //(parMem (oo (oo (sizeA 5) (sizeB 7)) (sizeC 10)))
+locMem //needname //(locMem (oo (oo (sizeA 5) (sizeB 7)) (sizeC 10)))
+bigMem //needname //(bigMem (oo (oo (sizeA 5) (sizeB 7)) (sizeC 10)))
+parlocMem //needname //(parlocMem (oo (oo (sizeA 5) (sizeB 7)) (sizeC 10)))
+locparMem //needname //(locparMem (oo (oo (sizeA 5) (sizeB 7)) (sizeC 10)))
+do //(do a (do b c))
+oo //(oo a (oo b c))
+doLast //(doLast a (doLast b c))
+i+ //(i+ a (i+ b c))
++ //(+ a (+ b c))
+* //(* a (* b c))
+
+
+
+(name apeType childA childB) recursively.
+make an AI code generator similar to my https://www.youtube.com/watch?v=H2eEJ1ZZTE4https://www.youtube.com/watch?v=H2eEJ1ZZTE4
+"Physicsmata 2 1 0 opensource GNU GPL 2+ unzip this jar file to get source code 2023 09 18 18 39 14"?
+
+Each apeType can have/exclude certain other apeTypes as childA and separately childB.
+
+For AI, could use the 2d grid, that theres a rectangle array of about 70apetypes*100 to choose apeType of each column
+and approx 100*100 triangle array of 2 child pointers each. So about 17000 cells on screen that can each be 0 or 1 or maybe float between.
+Maybe up to 70*300+300*300=111000 cells.
+Would that really help write code, or should I just use LLM on the Ap.js language?
