@@ -1,4 +1,7 @@
 Dagball, TinyGLSL, and CallGPTFromBrowser are opensource MIT licensed.
+
+Its not using Wikibinator203 or Axgob, even though they are in the lib dir. Theres other experimental js libs too that Im not using. But it is strongly using Ap.js (my GPU language) which uses TinyGLSL.js (my core GPU API for WebGL2 GLSL ES 300 that can do over a trillion multiplies per second in a browser. So as of 2024-11-21 its all MIT licensed but if you use those parts in the lib then that part is GNU AGPL3 with classpath exception and 2 other exceptions (Wikibinator203 license is that). So you dont have to AGPL. Was going to use those, but never got around to merging them.
+
 Wikibinator203 and Axgob are opensource GNU AGPL 3 licensed with a few extra permissions including classpath exception.
 NACL (for ed25519 digital signatures) is opensource Unlicense.
 
