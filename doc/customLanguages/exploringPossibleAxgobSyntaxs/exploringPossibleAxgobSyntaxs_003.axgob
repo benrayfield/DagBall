@@ -1,0 +1,123 @@
+<Seq
+	//() is normal call.
+	//{} is sCurryList
+	//[] is Infcur list.
+	//<a b c d...> means (a [b c d...]), used for vararg funcs that actually take 2 params, the first param being a [] list.
+	//,x is (T x) which is often used with {} such as {,+ {,* ,10 ,20} ,3}  returns int 200.
+	(Fo <Seq
+		...
+	>)
+	//TODO names of constants, for when same axgob/fn/lambda has multiple parents when toStringing.
+	//Do I want name to be on the left name#(a b c) vs right (a b c)#name. Consider it happens recursively too ((a b)#nameAB c)#nameABC.
+	//[((a b)#nameAB c)#nameABC (M #nameAB d)]#nameOfList
+	//[((a b)NameAB c)NameABC (M NameAB d)]NameOfList
+	//[((a b)=NameAB c)=NameABC (M =NameAB d)]=NameOfList
+	//[((a b)NameAB c)NameABC 2.34NameABC 'a string'NameOfString aStringLiteralStartsWithLowercaseSoDoesntNeedQuotes (M NameAB d)]NameOfList
+	//Names must start with capital letter A-Z but can have any unicode after that if it lacks whitespace and is short string,
+	//leaving room for string literals that start with lowercase letter and numbers that start with . or 0-9 or -.
+	//Also should names be allowed to start with other symbols on keyboard such as + for int add vs I+? {,II+ {,II* ,10 ,20} ,3}
+
+	//FIXME what if theres a name in the (Seq [[a b c]NameOfABC d e]) how do u display those names in <Seq a b c d e>?
+	//I guess it would revert to (Seq [[a b c]NameOfABC d e])
+
+	{} and () are each replaced by (F U) aka identityFunc.
+	{b} and (b) are each replaced by b.
+	(b c) is normal lambda call, b called on c.
+	(b c d) is ((b c) d), and so on.
+	{a b} is (S a b).
+	{a b c} is {{a b} c}, and so on.
+	[] is Infcur.
+	[b] is (Infcur b).
+	[b c d e] is (Infcur b c d e).
+	<b c d e> is (b [c d e]).
+	,x is (T x).
+	,,x is (T (T x)) and so on.
+	hello is string 'hello'.
+	'hello world' is string 'hello world'.
+	2.34 is double 2.34.
+	2. is double 2.
+	2 is int 2.
+	-2 is int -2.
+	-2. is double -2.
+
+	FIXME need syntax for bitstrings, typed and primtNeutral/untyped, and for axgobs that have strange values of obij (the 4 ints per axgob).
+
+	FIXME need syntax for reading a var name in AVL tree, maybe also in (M key val key val) jsonlike (M ...) maps,
+	(Lz (C [funcbody x y z] valX valY valZ)) or is it written as (Lz (<C funcbody x y z> valX valY valZ))?
+	Do I want Lz vs LamNs Ns Treemap(as Ns) etc?
+	Do I want built in avl tree opcodes?
+
+	[axgobs that have strange values of obij (the 4 ints per axgob)]
+		include it just before the name somehow, except in cases theres a syntax for it like ab.cd.ef or something maybe that means what (Field (Field ab cd) ef) returns?
+		ab/cd/ef ?
+		(Seq [[a b c]NameOfABC d e])/cd/{,+ ,2 ,3}
+		(Seq [[a b c]NameOfABC d e])/cd#NameOfSeqCD/{,+ ,2 ,3}
+		But what if want to name cd (the string 'cd') AND name NameOfSeqCD? That syntax doesnt work.
+		.((Seq [[a b c]NameOfABC d e]) cd#NameOfSeqCD {,+ ,2 ,3}) where .(...) is Field syntax.
+
+	Dont need to show o8 or curm except in leafs, and alot of those leafs will have names such as Pair S T Ax 234 .
+
+	Need to show primz and primt and maybe b/bize for typed arrays but could define a syntax for int[] and double[] and float[] literals etc.
+		d(...doubles...) ... d(d(2.34 3.45 2. 3.) d(5. 6. 7. 8.))
+		f(floats)
+		i(ints)
+		//s(same as {} aka sCurryList)
+
+
+	{,+ {,* ,10 ,20} ,3}
+	in wikibinator203 would have been written as <+ <* ,10 ,20> ,3> but axgob will use <> to mean something else.
+
+	How about g(hello world) as the string 'hello world'? 'g(' and ')' would be like the quotes. but then would have to escape parens.
+
+	a()Name1
+	b()Name2
+	c()
+	d()
+	.((Seq [[a b c]NameOfABC d e]) cd#NameOfSeqCD {,+ ,2 ,3}) where .(...) is Field syntax.
+	!rule !(rule internals...)
+	etc as syntaxs.
+
+	T/, AND the strange obij bits (up to 128 bits that are not the defaults in that part of the forest) should go on the left of left(...)right.
+	Only names should go on the right.
+
+	What syntax for the .e/deterministicEvalsTo and .ee/nondeterministicEvalsTo edges? Just leave them out of it? they can have cycles.
+
+	Prefixs...
+	, is T
+	. defines r as field of l in this callpair.
+		FIXME that will often make it nonhalting, but its a lazyeval. Should ./field make it halted, adding that to the opcode logic?
+	! defines rule.
+	It cant be both field and rule at once.
+	,!(rule stuff...) in this case (rule stuff...) is the rule and its (T !(rule stuff...)).
+	!,(stuff...) in this case the whole (T (stuff..)) is the rule.
+
+
+	TODO GoO OO avl/treemap godellessthan idMaker etc.
+	syntax for read and write (by forkEdit).
+
+
+
+
+FIXME [. defines r as field of l in this callpair.] that will often make it nonhalting,
+	but its a lazyeval. Should ./field make it halted, adding that to the opcode logic?
+
+FIXME should i get rid of sym byte and make opcodes for that?
+
+FIXME should i make the 4 ints in axgob only be an optimization of having no ints where theres a real U/leaf just 1 U/leaf?
+	Id like to (make Field and Rule etc opcodes instead of syms, and make Bit0 and Bit1 opcodes instead of int64 etc being leaf
+	(but still store in .o .b .i .j ints in axgob)) BUT theres a problem. .b would be hard to optimize that way
+	and might have to go back to padding with 100000... to next powOf2 for bitstrings that arent a powOf2 (-1) long,
+	but i found that i used powOf2 size cbts (raw bitstrings) as they are instead of as bitstrings
+	to hold the 64 bits of a double for example, instead of 128 bits with a 1 then 63 0s of padding.
+	Also its more efficient to have primz and primt (which primitive type of 1d array) in the bitstring/cbt
+	instead of as an extra axgob callpair prefixing it with the type.
+
+	keep primz and primt (the primitiveAnd1dArrayType byte) and .b (the bitstring size as int32 from 0 to 2**30 bits)
+		but move sym byte to opcodes. careful about lazyeval vs halted. symField has to work even from lazyevals (go across .e or .ee edge to eval).
+		So make Field a variant of Lz(aka the lazyeval opcode which lets evaling thats in progress be referred to by halted code) op.
+			or simpler, make Lz take 2 params, and the first could be 'field' or 'customThing567' or (Pair S T) or -3.45 etc,
+			and define (Lz U)LZ so (LZ thing) is lazyeval of thing.
+		Might want 7 bits for the number of local i j 64 bits, 0..64, to use as concatted bitstrings left self0to64 right
+			but can be derived from left.b right.b and self.b.
+		or could reduce b from 32 to 24 bits and put primz and primt in there, so only 1 int of literal data in a node (other than what can be derived and cached).
+			thats max bitstring size of 2mB minus 1 bit. or could keep it at max 128mB.

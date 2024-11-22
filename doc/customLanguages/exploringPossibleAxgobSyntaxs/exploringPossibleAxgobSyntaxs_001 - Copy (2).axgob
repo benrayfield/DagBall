@@ -1,0 +1,10 @@
+<Seq
+	//() is normal call.
+	//{} is sCurryList
+	//[] is Infcur list.
+	//<a b c d...> means (a [b c d...]), used for vararg funcs that actually take 2 params, the first param being a [] list.
+	//,x is (T x) which is often used with {} such as {,+ {,* ,10 ,20} ,3}  returns int 200.
+	(Fo <Seq
+		...
+	>)
+>

@@ -1,0 +1,147 @@
+TinyGlsl.simple(`
+float loc[106]; //contains all locMem, locparMem, parlocMem arrays. ptrLoc or ptr can point into here.
+const int balls_o = 0; //array offset in parMem and locMem (locparMem)
+const int balls_s = 24; //array size in parMem and locMem (locparMem)
+const int V_o = 24; //array offset in parMem and locMem (locparMem)
+const int V_s = 28; //array size in parMem and locMem (locparMem)
+const int curveGrabLow_o = 52; //array offset in parMem and locMem (locparMem)
+const int curveGrabLow_s = 12; //array size in parMem and locMem (locparMem)
+const int curveGrabMid_o = 64; //array offset in parMem and locMem (locparMem)
+const int curveGrabMid_s = 12; //array size in parMem and locMem (locparMem)
+const int curveGrabHigh_o = 76; //array offset in parMem and locMem (locparMem)
+const int curveGrabHigh_s = 12; //array size in parMem and locMem (locparMem)
+const int circHeaders_o = 88; //array offset in parMem and locMem (locparMem)
+const int circHeaders_s = 8; //array size in parMem and locMem (locparMem)
+const int aftrans_o = 96; //array offset in parMem and locMem (locparMem)
+const int aftrans_s = 4; //array size in parMem and locMem (locparMem)
+const int c0_abc_o = 100; //array offset in parMem and locMem (locparMem)
+const int c0_abc_s = 1; //array size in parMem and locMem (locparMem)
+const int c7_abc_o = 101; //array offset in parMem and locMem (locparMem)
+const int c7_abc_s = 5; //array size in parMem and locMem (locparMem)
+float epsilon_f = 0.;
+float isDisplayElsePotensForGradient_f = 0.;
+float pairBallDist_f = 0.;
+float heightASum_f = 0.;
+float heightBSum_f = 0.;
+float pixDistSum_f = 0.;
+float pixBalSum_f = 0.;
+float y_f = 0.;
+float x_f = 0.;
+float potenOne_f = 0.;
+float cy_f = 0.;
+float cx_f = 0.;
+float cr_f = 0.;
+float circInfluence_f = 0.;
+float circWindow_f = 0.;
+float potenCirc_f = 0.;
+float c7_a_f = 0.;
+float otherBallWeight_f = 0.;
+float otherBallY_f = 0.;
+float otherBallX_f = 0.;
+float ballOrDisplayYX_vs_otherBall_distance_f = 0.;
+float potenSum_f = 0.;
+const int par_o = 0; //view of whole {par} shared array
+const int loc_o = 0; //view of whole {loc} shared array
+const int big_o = 0; //view of whole {big} shared array
+const int par_s = 106; //size of {par} shared array
+const int loc_s = 106; //size of {loc} shared array
+const int big_s = 0; //size of {big} shared array
+float addToEnergyPerBallDistanceCodePerPairOfBallsForSingleHeightmap_u(float pairBallDist_f){
+return (
+		loc[V_o+3] *
+		pow(
+			
+			max(
+				loc[V_o+4],
+				(
+					loc[V_o+5] -
+					pairBallDist_f))/loc[V_o+6],
+			loc[V_o+7]));
+}`,`for(int i=0; i<106; i++) loc[i] = 0.; //Ap.fillLocWithAll0sRightAfterCreate
+epsilon_f = 0.0009765625;
+isDisplayElsePotensForGradient_f = 0.5;
+for(int gradientCopyIndex_i=0; gradientCopyIndex_i<106; gradientCopyIndex_i++){
+	loc[loc_o+gradientCopyIndex_i] = (
+			par[par_o+gradientCopyIndex_i] +
+			((
+					gradientCopyIndex_i ==
+					id) ? epsilon_f : 0.));
+}
+//Not defining ? here cuz it goes before main(): addToEnergyPerBallDistanceCodePerPairOfBallsForSingleHeightmap(pairBallDist);
+for(int numBalls_i=0; numBalls_i<1; numBalls_i++){
+//retc = potenSum_f;
+	heightASum_f = loc[V_o+8];
+	heightBSum_f = loc[V_o+9];
+	pixDistSum_f = loc[V_o+10];
+	pixBalSum_f = loc[V_o+11];
+	y_f = loc[balls_o+numBalls_i*2+0];
+	x_f = loc[balls_o+numBalls_i*2+1];
+	potenOne_f = loc[V_o+12];
+	int numCircs_i = 0; //listLoop iter {numCircs 2}
+	
+	cy_f = loc[circHeaders_o+numCircs_i*4+0];
+	cx_f = loc[circHeaders_o+numCircs_i*4+1];
+	cr_f = loc[circHeaders_o+numCircs_i*4+2];
+	circInfluence_f = loc[circHeaders_o+numCircs_i*4+3];
+	circWindow_f = ((length(vec2(
+					(
+						cy_f -
+						y_f),
+					(
+						cx_f -
+						x_f)))<cr_f) ? loc[V_o+13] : loc[V_o+14]);
+	potenCirc_f = loc[V_o+15];
+	//in {+ ...}, isDeclaringMem c0_abc
+	potenCirc_f = loc[V_o+16];
+	
+	potenOne_f += (
+			potenCirc_f *
+			circInfluence_f *
+			circWindow_f);
+	numCircs_i = 1; //listLoop iter {numCircs 2}
+	
+	cy_f = loc[circHeaders_o+numCircs_i*4+0];
+	cx_f = loc[circHeaders_o+numCircs_i*4+1];
+	cr_f = loc[circHeaders_o+numCircs_i*4+2];
+	circInfluence_f = loc[circHeaders_o+numCircs_i*4+3];
+	circWindow_f = ((length(vec2(
+					(
+						cy_f -
+						y_f),
+					(
+						cx_f -
+						x_f)))<cr_f) ? loc[V_o+13] : loc[V_o+14]);
+	potenCirc_f = loc[V_o+15];
+	//in {+ ...}, isDeclaringMem c7_abc
+	c7_a_f = loc[c7_abc_o+4];
+	potenCirc_f = (
+			loc[V_o+17] +
+			sin(
+					(
+						x_f +
+						c7_a_f) *
+					y_f *
+					loc[V_o+18]));
+	potenOne_f += (
+			potenCirc_f *
+			circInfluence_f *
+			circWindow_f);
+	potenOne_f = (
+			loc[V_o+26] *
+			pow(
+				(
+					potenOne_f -
+					loc[curveGrabMid_o+numBalls_i]),
+				loc[V_o+27]));
+	potenSum_f += potenOne_f;
+
+}
+ret = 42.;
+retb = potenSum_f;
+//retb = float(id);
+//retc = loc[id];
+//retd = 42.;
+`,
+Float32Array.of(17.90561294555664,6.370355606079102,0.0428168959915638,2.261533260345459,-5.8961029052734375,-7.1521196365356445,-0.8353716135025024,-4.276762962341309,-1.009261131286621,16.826656341552734,-0.13536247611045837,1.0682892799377441,-0.09514517337083817,0.6129559278488159,0.27901530265808105,2.691152811050415,3.357168436050415,5.711653709411621,0.00581826688721776,0.880428671836853,3.6259515285491943,9.176390647888184,-20.007644653320312,5.293992519378662,0.0009765625,0,0,8.050000190734863,0,0.07000000029802322,0.07000000029802322,2,0,0,0,0,0,1,0,0,0,0.20000000298023224,33,0,1,8.050000190734863,0,0.07000000029802322,0.07000000029802322,2,2.3499999046325684,2,1,1,1,1,1,1,1,1,1,1,1,1,-2,2,-2,-2,2,2,2,2,2,-2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,0,0,10000,1,-0.6017442941665649,1.1215028762817383,1.840000033378601,1,225,300,60,60,0.30212801694869995,-0.30655813217163086,0.4198278784751892,0.21975739300251007,-0.05462523549795151,-1.1615443229675293),
+Float32Array.of(),
+1,107,4)

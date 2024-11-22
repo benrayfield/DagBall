@@ -1,0 +1,21 @@
+<Seq
+	//() is normal call.
+	//{} is sCurryList
+	//[] is Infcur list.
+	//<a b c d...> means (a [b c d...]), used for vararg funcs that actually take 2 params, the first param being a [] list.
+	//,x is (T x) which is often used with {} such as {,+ {,* ,10 ,20} ,3}  returns int 200.
+	(Fo <Seq
+		...
+	>)
+	//TODO names of constants, for when same axgob/fn/lambda has multiple parents when toStringing.
+	//Do I want name to be on the left name#(a b c) vs right (a b c)#name. Consider it happens recursively too ((a b)#nameAB c)#nameABC.
+	//[((a b)#nameAB c)#nameABC (M #nameAB d)]#nameOfList
+	//[((a b)NameAB c)NameABC (M NameAB d)]NameOfList
+	//[((a b)=NameAB c)=NameABC (M =NameAB d)]=NameOfList
+	//[((a b)NameAB c)NameABC 2.34NameABC 'a string'NameOfString aStringLiteralStartsWithLowercaseSoDoesntNeedQuotes (M NameAB d)]NameOfList
+	//Names must start with capital letter A-Z but can have any unicode after that if it lacks whitespace and is short string,
+	//leaving room for string literals that start with lowercase letter and numbers that start with . or 0-9 or -.
+	//Also should names be allowed to start with other symbols on keyboard such as + for int add vs I+? {,II+ {,II* ,10 ,20} ,3}
+	
+
+>

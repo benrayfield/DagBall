@@ -1,0 +1,247 @@
+TinyGlsl.logNextNGlslCodes=1 fragmentShaderSource=
+#version 300 es
+				precision highp float; //2
+				uniform vec2 mouse; //3
+				uniform float par[692]; //4
+				in vec2 coord; //5
+				//flat in int id; //6
+				out vec4 fragColor; //7
+				const int pars = 692; //number of params in the par array //8
+				const int idh = 21; //height in pixels //9
+				const int idw = 33; //width in pixels //10
+				const int ids = idh*idw; //height*width //11
+				 //12
+float loc[655]; //contains all locMem, locparMem, parlocMem arrays. ptrLoc or ptr can point into here. //13
+const int balls_o = 0; //array offset in parMem and locMem (locparMem) //14
+const int balls_s = 28; //array size in parMem and locMem (locparMem) //15
+const int curveGrabLow_o = 28; //array offset in parMem and locMem (locparMem) //16
+const int curveGrabLow_s = 14; //array size in parMem and locMem (locparMem) //17
+const int curveGrabMid_o = 42; //array offset in parMem and locMem (locparMem) //18
+const int curveGrabMid_s = 14; //array size in parMem and locMem (locparMem) //19
+const int curveGrabHigh_o = 56; //array offset in parMem and locMem (locparMem) //20
+const int curveGrabHigh_s = 14; //array size in parMem and locMem (locparMem) //21
+const int circHeaders_o = 70; //array offset in parMem and locMem (locparMem) //22
+const int circHeaders_s = 8; //array size in parMem and locMem (locparMem) //23
+const int aftrans_o = 78; //array offset in parMem and locMem (locparMem) //24
+const int aftrans_s = 4; //array size in parMem and locMem (locparMem) //25
+const int c0_abc_o = 82; //array offset in parMem and locMem (locparMem) //26
+const int c0_abc_s = 1; //array size in parMem and locMem (locparMem) //27
+const int c1_outs_o = 83; //array offset in parMem and locMem (locparMem) //28
+const int c1_outs_s = 22; //array size in parMem and locMem (locparMem) //29
+const int c1_outsStart_o = 105; //array offset in parMem and locMem (locparMem) //30
+const int c1_outsStart_s = 22; //array size in parMem and locMem (locparMem) //31
+const int c1_outsNext_o = 127; //array offset in parMem and locMem (locparMem) //32
+const int c1_outsNext_s = 22; //array size in parMem and locMem (locparMem) //33
+const int c1_weights_o = 149; //array offset in parMem and locMem (locparMem) //34
+const int c1_weights_s = 506; //array size in parMem and locMem (locparMem) //35
+const int V_o = 655; //array offset in parMem  (after overlapping par and loc mems) //36
+const int V_s = 37; //array size in parMem  (after overlapping par and loc mems) //37
+float epsilon_f = 0.; //38
+float isDisplayElsePotensForGradient_f = 0.; //39
+float pairBallDist_f = 0.; //40
+float heightASum_f = 0.; //41
+float heightBSum_f = 0.; //42
+float pixDistSum_f = 0.; //43
+float pixBalSum_f = 0.; //44
+float y_f = 0.; //45
+float x_f = 0.; //46
+float potenOne_f = 0.; //47
+float cy_f = 0.; //48
+float cx_f = 0.; //49
+float cr_f = 0.; //50
+float circInfluence_f = 0.; //51
+float circWindow_f = 0.; //52
+float potenCirc_f = 0.; //53
+float c1_weightLimit_f = 0.; //54
+float c1_normForceBy_weightLimit_f = 0.; //55
+float c1_weightedSum_f = 0.; //56
+float c1_fromOutOr1ForBias_f = 0.; //57
+float c1_out_f = 0.; //58
+float c1_sumOfSquaredWeights_f = 0.; //59
+float c1_s_f = 0.; //60
+float otherBallWeight_f = 0.; //61
+float otherBallY_f = 0.; //62
+float otherBallX_f = 0.; //63
+float ballOrDisplayYX_vs_otherBall_distance_f = 0.; //64
+float potenSum_f = 0.; //65
+const int par_o = 0; //view of whole {par} shared array //66
+const int loc_o = 0; //view of whole {loc} shared array //67
+const int big_o = 0; //view of whole {big} shared array //68
+const int par_s = 692; //size of {par} shared array //69
+const int loc_s = 655; //size of {loc} shared array //70
+const int big_s = 0; //size of {big} shared array //71
+float addToEnergyPerBallDistanceCodePerPairOfBallsForSingleHeightmap_u(float pairBallDist_f){ //72
+return ( //73
+		par[V_o+3] * //74
+		pow( //75
+			 //76
+			max( //77
+				par[V_o+4], //78
+				( //79
+					par[V_o+5] - //80
+					pairBallDist_f))/par[V_o+6], //81
+			par[V_o+7])); //82
+} //83
+				void main(){ //84
+					int idy = int(coord.y*float(idh)); //y position from 0 to idh-1. FIXME if idy idx or id is used in beforeCode, will need to be passed as param. Maybe just id? //85
+					int idx = int(coord.x*float(idw)); //x position from 0 to idw-1 //86
+					int id = idy*idw+idx; //2d pixel index in 1 int //87
+					float ret = 0.; //floatsOutPerPixel=1 use ret retb retc retd if 4, use just ret if 1. //88
+					float retb = 0.; //89
+					float retc = 0.; //90
+					float retd = 0.; //91
+					//start user code //92
+					for(int i=0; i<655; i++) loc[i] = 0.; //Ap.fillLocWithAll0sRightAfterCreate //93
+epsilon_f = par[V_o+0]; //94
+isDisplayElsePotensForGradient_f = par[V_o+1]; //95
+for(int gradientCopyIndex_i=0; gradientCopyIndex_i<692; gradientCopyIndex_i++){ //96
+	loc[loc_o+gradientCopyIndex_i] = ( //97
+			par[par_o+gradientCopyIndex_i] + //98
+			(( //99
+					gradientCopyIndex_i == //100
+					id) ? epsilon_f : par[V_o+2])); //101
+} //102
+//Not defining ? here cuz it goes before main(): addToEnergyPerBallDistanceCodePerPairOfBallsForSingleHeightmap(pairBallDist); //103
+for(int numBalls_i=0; numBalls_i<14; numBalls_i++){ //104
+	heightASum_f = par[V_o+8]; //105
+	heightBSum_f = par[V_o+9]; //106
+	pixDistSum_f = par[V_o+10]; //107
+	pixBalSum_f = par[V_o+11]; //108
+	y_f = loc[balls_o+numBalls_i*2+0]; //109
+	x_f = loc[balls_o+numBalls_i*2+1]; //110
+	potenOne_f = par[V_o+12]; //111
+	int numCircs_i = 0; //listLoop iter {numCircs 2} //112
+	 //113
+	cy_f = loc[circHeaders_o+numCircs_i*4+0]; //114
+	cx_f = loc[circHeaders_o+numCircs_i*4+1]; //115
+	cr_f = loc[circHeaders_o+numCircs_i*4+2]; //116
+	circInfluence_f = loc[circHeaders_o+numCircs_i*4+3]; //117
+	circWindow_f = ((length(vec2( //118
+					( //119
+						cy_f - //120
+						y_f), //121
+					( //122
+						cx_f - //123
+						x_f)))<cr_f) ? par[V_o+13] : par[V_o+14]); //124
+	potenCirc_f = par[V_o+15]; //125
+	//in {+ ...}, isDeclaringMem c0_abc //126
+	potenCirc_f = par[V_o+16]; //127
+	 //128
+	potenOne_f += ( //129
+			potenCirc_f * //130
+			circInfluence_f * //131
+			circWindow_f); //132
+	numCircs_i = 1; //listLoop iter {numCircs 2} //133
+	 //134
+	cy_f = loc[circHeaders_o+numCircs_i*4+0]; //135
+	cx_f = loc[circHeaders_o+numCircs_i*4+1]; //136
+	cr_f = loc[circHeaders_o+numCircs_i*4+2]; //137
+	circInfluence_f = loc[circHeaders_o+numCircs_i*4+3]; //138
+	circWindow_f = ((length(vec2( //139
+					( //140
+						cy_f - //141
+						y_f), //142
+					( //143
+						cx_f - //144
+						x_f)))<cr_f) ? par[V_o+13] : par[V_o+14]); //145
+	potenCirc_f = par[V_o+15]; //146
+	//in {+ ...}, isDeclaringMem c1_outs //147
+	//in {+ ...}, isDeclaringMem c1_outsStart //148
+	//in {+ ...}, isDeclaringMem c1_outsNext //149
+	//in {+ ...}, isDeclaringMem c1_weights //150
+	for(int c1_nodeTo_i=0; c1_nodeTo_i<22; c1_nodeTo_i++){ //151
+		loc[c1_outs_o+c1_nodeTo_i] = loc[c1_outsStart_o+c1_nodeTo_i]; //152
+	} //153
+	loc[c1_outs_o+1] = y_f; //154
+	loc[c1_outs_o+2] = x_f; //155
+	c1_weightLimit_f = par[V_o+17]; //156
+	c1_normForceBy_weightLimit_f = par[V_o+18]; //157
+	for(int c1_timeCycles_i=0; c1_timeCycles_i<5; c1_timeCycles_i++){ //158
+		for(int c1_nodeTo_i=0; c1_nodeTo_i<22; c1_nodeTo_i++){ //159
+			c1_weightedSum_f = par[V_o+19]; //160
+			for(int c1_nodeFrom_i=0; c1_nodeFrom_i<23; c1_nodeFrom_i++){ //161
+				c1_fromOutOr1ForBias_f = loc[c1_outs_o+c1_nodeFrom_i]; //162
+				c1_weightedSum_f += ( //163
+						c1_fromOutOr1ForBias_f * //164
+						loc[c1_weights_o+c1_nodeFrom_i*22+c1_nodeTo_i]); //165
+			} //166
+			c1_weightedSum_f = ( //167
+					c1_weightedSum_f * //168
+					par[V_o+20]); //169
+			c1_out_f = (1./(1.+exp(-c1_weightedSum_f))); //170
+			loc[c1_outsNext_o+c1_nodeTo_i] = c1_out_f; //171
+		} //172
+		for(int c1_nodeTo_i=0; c1_nodeTo_i<22; c1_nodeTo_i++){ //173
+			loc[c1_outs_o+c1_nodeTo_i] = loc[c1_outsNext_o+c1_nodeTo_i]; //174
+		} //175
+	} //176
+	for(int c1_nodeTo_i=0; c1_nodeTo_i<22; c1_nodeTo_i++){ //177
+		c1_sumOfSquaredWeights_f = par[V_o+21]; //178
+		for(int c1_nodeFrom_i=0; c1_nodeFrom_i<23; c1_nodeFrom_i++){ //179
+			c1_sumOfSquaredWeights_f += pow( //180
+					loc[c1_weights_o+c1_nodeFrom_i*22+c1_nodeTo_i], //181
+					par[V_o+22]); //182
+		} //183
+		c1_s_f = sqrt(c1_sumOfSquaredWeights_f/par[V_o+23]); //184
+		potenCirc_f += ( //185
+				c1_normForceBy_weightLimit_f * //186
+				max( //187
+					par[V_o+24], //188
+					( //189
+						c1_s_f - //190
+						c1_weightLimit_f))); //191
+	} //192
+	potenCirc_f += ( //193
+			par[V_o+25] * //194
+			( //195
+				( //196
+					par[V_o+26] * //197
+					loc[c1_outs_o+0]) - //198
+				par[V_o+27])); //199
+	 //200
+	potenOne_f += ( //201
+			potenCirc_f * //202
+			circInfluence_f * //203
+			circWindow_f); //204
+	for(int otherBall_i=0; otherBall_i<14; otherBall_i++){ //205
+		otherBallWeight_f = (( //206
+					otherBall_i == //207
+					numBalls_i) ? par[V_o+28] : par[V_o+29]); //208
+		otherBallY_f = loc[balls_o+otherBall_i*2+0]; //209
+		otherBallX_f = loc[balls_o+otherBall_i*2+1]; //210
+		ballOrDisplayYX_vs_otherBall_distance_f = length(vec2( //211
+				( //212
+					y_f - //213
+					otherBallY_f), //214
+				( //215
+					x_f - //216
+					otherBallX_f))); //217
+		potenOne_f += ( //218
+				otherBallWeight_f * //219
+				 //220
+				addToEnergyPerBallDistanceCodePerPairOfBallsForSingleHeightmap_u( //221
+					ballOrDisplayYX_vs_otherBall_distance_f)); //222
+	} //223
+	potenOne_f = ( //224
+			par[V_o+35] * //225
+			pow( //226
+				( //227
+					potenOne_f - //228
+					loc[curveGrabMid_o+numBalls_i]), //229
+				par[V_o+36])); //230
+	potenSum_f += potenOne_f; //231
+} //232
+ret = potenSum_f; //233
+					//end user code //234
+					//ret = testFunctionASDFASDF(id, ret,-.5); //FIXME remove this //235
+					fragColor = vec4(ret, retb, retc, retd); //236
+				} //237
+
+x.get('V',2)
+undefined
+x.getFloat('V',2)
+VM2275:1 Uncaught TypeError: x.getFloat is not a function
+    at <anonymous>:1:3
+(anonymous) @ VM2275:1
+x.par.get('V',2)
+8.050000190734863

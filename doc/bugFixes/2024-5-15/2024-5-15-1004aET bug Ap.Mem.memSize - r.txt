@@ -1,0 +1,228 @@
+Just before those 1 1 1 1 1, there was this experiment that gave nan (and very similar experiments that gave val 1 by changing the 4%99 to [0%99 to 3%99]. Heres that ape code and display glsl it generates.
+
+ape:(do
+	{abc locparMem (5)}
+	<{n float} 1.0>
+	<(locPtr abc 0%99) n>
+	<(locPtr abc 1%99) n>
+	<(locPtr abc 2%99) n>
+	<(locPtr abc 3%99) n>
+	<potenCirc$ (locPtr abc 4%99)>
+)
+
+#version 300 es
+				precision highp float; //2
+				uniform vec2 mouse; //3
+				uniform float par[115]; //4
+				in vec2 coord; //5
+				//flat in int id; //6
+				out vec4 fragColor; //7
+				const int pars = 115; //number of params in the par array //8
+				const int idh = 500; //height in pixels //9
+				const int idw = 540; //width in pixels //10
+				const int ids = idh*idw; //height*width //11
+				 //12
+float loc[115]; //contains all locMem, locparMem, parlocMem arrays. ptrLoc or ptr can point into here. //13
+const int balls_o = 0; //array offset in parMem and locMem (locparMem) //14
+const int balls_s = 24; //array size in parMem and locMem (locparMem) //15
+const int V_o = 24; //array offset in parMem and locMem (locparMem) //16
+const int V_s = 28; //array size in parMem and locMem (locparMem) //17
+const int curveGrabLow_o = 52; //array offset in parMem and locMem (locparMem) //18
+const int curveGrabLow_s = 12; //array size in parMem and locMem (locparMem) //19
+const int curveGrabMid_o = 64; //array offset in parMem and locMem (locparMem) //20
+const int curveGrabMid_s = 12; //array size in parMem and locMem (locparMem) //21
+const int curveGrabHigh_o = 76; //array offset in parMem and locMem (locparMem) //22
+const int curveGrabHigh_s = 12; //array size in parMem and locMem (locparMem) //23
+const int circHeaders_o = 88; //array offset in parMem and locMem (locparMem) //24
+const int circHeaders_s = 12; //array size in parMem and locMem (locparMem) //25
+const int aftrans_o = 100; //array offset in parMem and locMem (locparMem) //26
+const int aftrans_s = 4; //array size in parMem and locMem (locparMem) //27
+const int c0_abc_o = 104; //array offset in parMem and locMem (locparMem) //28
+const int c0_abc_s = 1; //array size in parMem and locMem (locparMem) //29
+const int c1_abc_o = 105; //array offset in parMem and locMem (locparMem) //30
+const int c1_abc_s = 5; //array size in parMem and locMem (locparMem) //31
+const int c7_abc_o = 110; //array offset in parMem and locMem (locparMem) //32
+const int c7_abc_s = 5; //array size in parMem and locMem (locparMem) //33
+float epsilon_f = 0.; //34
+float isDisplayElsePotensForGradient_f = 0.; //35
+float pairBallDist_f = 0.; //36
+float heightASum_f = 0.; //37
+float heightBSum_f = 0.; //38
+float pixDistSum_f = 0.; //39
+float pixBalSum_f = 0.; //40
+float pixelY_f = 0.; //41
+float pixelX_f = 0.; //42
+float afAddY_f = 0.; //43
+float afAddX_f = 0.; //44
+float afMagnifyY_f = 0.; //45
+float afMagnifyX_f = 0.; //46
+float y_f = 0.; //47
+float x_f = 0.; //48
+float potenOne_f = 0.; //49
+float cy_f = 0.; //50
+float cx_f = 0.; //51
+float cr_f = 0.; //52
+float circInfluence_f = 0.; //53
+float circWindow_f = 0.; //54
+float potenCirc_f = 0.; //55
+float c1_n_f = 0.; //56
+float c7_n_f = 0.; //57
+float otherBallWeight_f = 0.; //58
+float otherBallY_f = 0.; //59
+float otherBallX_f = 0.; //60
+float ballOrDisplayYX_vs_otherBall_distance_f = 0.; //61
+float potenSum_f = 0.; //62
+const int par_o = 0; //view of whole {par} shared array //63
+const int loc_o = 0; //view of whole {loc} shared array //64
+const int big_o = 0; //view of whole {big} shared array //65
+const int par_s = 115; //size of {par} shared array //66
+const int loc_s = 115; //size of {loc} shared array //67
+const int big_s = 0; //size of {big} shared array //68
+float addToEnergyPerBallDistanceCodePerPairOfBallsForSingleHeightmap_u(float pairBallDist_f){ //69
+return ( //70
+		loc[V_o+6] * //71
+		pow( //72
+			 //73
+			max( //74
+				loc[V_o+7], //75
+				( //76
+					loc[V_o+8] - //77
+					pairBallDist_f))/loc[V_o+9], //78
+			loc[V_o+10])); //79
+} //80
+				void main(){ //81
+					int idy = int(coord.y*float(idh)); //y position from 0 to idh-1. FIXME if idy idx or id is used in beforeCode, will need to be passed as param. Maybe just id? //82
+					int idx = int(coord.x*float(idw)); //x position from 0 to idw-1 //83
+					int id = idy*idw+idx; //2d pixel index in 1 int //84
+					float ret = 0.; //floatsOutPerPixel=1 use ret retb retc retd if 4, use just ret if 1. //85
+					float retb = 0.; //86
+					float retc = 0.; //87
+					float retd = 0.; //88
+					//start user code //89
+					for(int i=0; i<115; i++) loc[i] = 0.; //Ap.fillLocWithAll0sRightAfterCreate //90
+epsilon_f = 0.0009765625;( //91
+	0.5 + //92
+	0. + //93
+	loc[V_o+3] + //94
+	loc[V_o+4]); //95
+isDisplayElsePotensForGradient_f = loc[V_o+5]; //96
+for(int gradientCopyIndexUglyHackForDisplay_i=0; gradientCopyIndexUglyHackForDisplay_i<115; gradientCopyIndexUglyHackForDisplay_i++){ //97
+	loc[loc_o+gradientCopyIndexUglyHackForDisplay_i] = par[par_o+gradientCopyIndexUglyHackForDisplay_i]; //98
+} //99
+//Not defining ? here cuz it goes before main(): addToEnergyPerBallDistanceCodePerPairOfBallsForSingleHeightmap(pairBallDist); //100
+for(int loopSize1TodoRemoveLoopInThisCase_i=0; loopSize1TodoRemoveLoopInThisCase_i<1; loopSize1TodoRemoveLoopInThisCase_i++){ //101
+	heightASum_f = loc[V_o+11]; //102
+	heightBSum_f = loc[V_o+12]; //103
+	pixDistSum_f = loc[V_o+13]; //104
+	pixBalSum_f = loc[V_o+14]; //105
+	pixelY_f = float(( //106
+			id / //107
+			600)); //108
+	pixelX_f = float(( //109
+			id % //110
+			600)); //111
+	afAddY_f = loc[aftrans_o+0]; //112
+	afAddX_f = loc[aftrans_o+1]; //113
+	afMagnifyY_f = loc[aftrans_o+2]; //114
+	afMagnifyX_f = loc[aftrans_o+3]; //115
+	y_f = ( //116
+			pixelY_f - //117
+			afAddY_f)/afMagnifyY_f; //118
+	x_f = ( //119
+			pixelX_f - //120
+			afAddX_f)/afMagnifyX_f; //121
+	potenOne_f = loc[V_o+15]; //122
+	int numCircs_i = 0; //listLoop iter {numCircs 3} //123
+	 //124
+	cy_f = loc[circHeaders_o+numCircs_i*4+0]; //125
+	cx_f = loc[circHeaders_o+numCircs_i*4+1]; //126
+	cr_f = loc[circHeaders_o+numCircs_i*4+2]; //127
+	circInfluence_f = loc[circHeaders_o+numCircs_i*4+3]; //128
+	circWindow_f = ((length(vec2( //129
+					( //130
+						cy_f - //131
+						y_f), //132
+					( //133
+						cx_f - //134
+						x_f)))<cr_f) ? loc[V_o+16] : loc[V_o+17]); //135
+	potenCirc_f = loc[V_o+18]; //136
+	//in {+ ...}, isDeclaringMem c0_abc //137
+	potenCirc_f = loc[V_o+19]; //138
+	 //139
+	potenOne_f += ( //140
+			potenCirc_f * //141
+			circInfluence_f * //142
+			circWindow_f); //143
+	numCircs_i = 1; //listLoop iter {numCircs 3} //144
+	 //145
+	cy_f = loc[circHeaders_o+numCircs_i*4+0]; //146
+	cx_f = loc[circHeaders_o+numCircs_i*4+1]; //147
+	cr_f = loc[circHeaders_o+numCircs_i*4+2]; //148
+	circInfluence_f = loc[circHeaders_o+numCircs_i*4+3]; //149
+	circWindow_f = ((length(vec2( //150
+					( //151
+						cy_f - //152
+						y_f), //153
+					( //154
+						cx_f - //155
+						x_f)))<cr_f) ? loc[V_o+16] : loc[V_o+17]); //156
+	potenCirc_f = loc[V_o+18]; //157
+	//in {+ ...}, isDeclaringMem c1_abc //158
+	c1_n_f = loc[V_o+20]; //159
+	loc[c1_abc_o+0] = c1_n_f; //160
+	loc[c1_abc_o+1] = c1_n_f; //161
+	loc[c1_abc_o+2] = c1_n_f; //162
+	loc[c1_abc_o+3] = c1_n_f; //163
+	potenCirc_f = loc[c1_abc_o+4]; //164
+	 //165
+	potenOne_f += ( //166
+			potenCirc_f * //167
+			circInfluence_f * //168
+			circWindow_f); //169
+	numCircs_i = 2; //listLoop iter {numCircs 3} //170
+	 //171
+	cy_f = loc[circHeaders_o+numCircs_i*4+0]; //172
+	cx_f = loc[circHeaders_o+numCircs_i*4+1]; //173
+	cr_f = loc[circHeaders_o+numCircs_i*4+2]; //174
+	circInfluence_f = loc[circHeaders_o+numCircs_i*4+3]; //175
+	circWindow_f = ((length(vec2( //176
+					( //177
+						cy_f - //178
+						y_f), //179
+					( //180
+						cx_f - //181
+						x_f)))<cr_f) ? loc[V_o+16] : loc[V_o+17]); //182
+	potenCirc_f = loc[V_o+18]; //183
+	//in {+ ...}, isDeclaringMem c7_abc //184
+	c7_n_f = loc[V_o+21]; //185
+	loc[c7_abc_o+4] = c7_n_f; //186
+	potenCirc_f = loc[c7_abc_o+4]; //187
+	 //188
+	potenOne_f += ( //189
+			potenCirc_f * //190
+			circInfluence_f * //191
+			circWindow_f); //192
+	for(int otherBall_i=0; otherBall_i<12; otherBall_i++){ //193
+		otherBallWeight_f = loc[V_o+22]; //194
+		otherBallY_f = loc[balls_o+otherBall_i*2+0]; //195
+		otherBallX_f = loc[balls_o+otherBall_i*2+1]; //196
+		ballOrDisplayYX_vs_otherBall_distance_f = length(vec2( //197
+				( //198
+					y_f - //199
+					otherBallY_f), //200
+				( //201
+					x_f - //202
+					otherBallX_f))); //203
+		potenOne_f += ( //204
+				otherBallWeight_f * //205
+				 //206
+				addToEnergyPerBallDistanceCodePerPairOfBallsForSingleHeightmap_u( //207
+					ballOrDisplayYX_vs_otherBall_distance_f)); //208
+	} //209
+	potenSum_f += potenOne_f; //210
+} //211
+ret = potenSum_f; //212
+					//end user code //213
+					//ret = testFunctionASDFASDF(id, ret,-.5); //FIXME remove this //214
+					fragColor = vec4(ret, retb, retc, retd); //215
+				} //216

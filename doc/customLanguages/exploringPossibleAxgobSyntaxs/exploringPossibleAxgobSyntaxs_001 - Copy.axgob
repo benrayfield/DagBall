@@ -1,0 +1,22 @@
+(
+	{}
+	(Seq [])
+	(Fo Seq[
+		...
+	])
+	(Fo _[
+		...
+	])
+	(Fo <Seq ...>
+
+	])
+	//i could make <...> be opposite direction of list as [] so it appends on the left.
+	//but that wouldnt make Seq eval on <...> by writing <Seq ...>.
+	//How about <a b c d> means (a [b c d]), used for vararg funcs of actually 2 params where the vararg list [] goes in first param,
+	//such as Wh/If/Ife/Seq.
+	(Fo <Seq
+		...
+	>)
+	//It appears it could use more chaining depth, but how to do that consistently? <Fo Seq ...> leaves it ambiguous if its 1 or 2 of those.
+
+)

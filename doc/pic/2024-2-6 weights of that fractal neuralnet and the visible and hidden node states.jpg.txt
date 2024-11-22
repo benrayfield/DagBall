@@ -1,0 +1,35 @@
+https://twitter.com/benrayfield/status/1754872376922087438/photo/1
+https://www.youtube.com/watch?v=bDRE1BZ0vzw
+
+Conversation
+Lambda Rick /acc
+@benrayfield
+·
+23h
+Dagball can now learn shapes by example using mouse to tell it good/bad of the current shape in any GPU_circle that you've used the button to put a tiny neuralnet in. Watch as I live train this fractal and save it into neuralnet_1707143607.8198001.dagball
+youtube.com
+DagBall V139 learns fractal shape using 1 layer RBM neuralnet trained...
+Lambda Rick /acc
+@benrayfield
+This is gonna take some tuning and more UI before its useful for making game content. A few more dimensions to adjust by holding a keyboard button while moving mouse, neuralnet norming, etc. Heres the weights of that fractal neuralnet and the visible and hidden node states.
+9:19 AM · Feb 6, 2024
+·
+5
+ Views
+View post engagements
+
+Lambda Rick /acc
+@benrayfield
+·
+4m
+See those 2 "1" on the top and side. Those are to multiply bias by, a node whose state is always 1.
+Lambda Rick /acc
+@benrayfield
+·
+42s
+Only the visible nodes count toward the up to 1000 dimensions in dagball, not the weights here. Its specialized in the Contrastive Divergence learning algorithm.
+
+------
+
+https://twitter.com/benrayfield/status/1754879113502810516
+I made the neuralnet's visible nodes vibrate and change smoothly by defining potential-energy as the difference of input and autoassociative prediction after 5 RBM (1 edge layer) cycles to converge. It moves like neural jello.

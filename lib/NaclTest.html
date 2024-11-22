@@ -1,0 +1,32 @@
+<!DOCTYPE html><html><head>
+<meta charset="UTF-8" />
+<title>Nacl test</title>
+<script src=nacl.js></script>
+<script>
+console.log('nacl='+nacl);
+
+// Function to compute and log the SHA-512 hash of an empty string
+var computeAndLogHash = function(){
+	// Prepare an empty Uint8Array as input
+	const input = new Uint8Array([]);
+
+	// Compute the hash
+	const hashOutput = nacl.hash(input);
+
+	// Convert the hash output (Uint8Array) to a hexadecimal string
+	const hashHex = Array.from(hashOutput).map(b => b.toString(16).padStart(2, '0')).join('');
+	
+	const correctHashHex = 'cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e';
+
+	// Log the computed hash
+	console.log("SHA512(\"\"):", hashHex);
+	if(hashHex != correctHashHex) throw new Error('didnt match correct hash of empty');
+};
+
+// Call the function
+computeAndLogHash();
+		
+</script>
+</head><body>
+	Nacl test TODO...
+</body></html>

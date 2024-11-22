@@ -1,0 +1,75 @@
+<Seq
+	//() is normal call.
+	//{} is sCurryList
+	//[] is Infcur list.
+	//<a b c d...> means (a [b c d...]), used for vararg funcs that actually take 2 params, the first param being a [] list.
+	//,x is (T x) which is often used with {} such as {,+ {,* ,10 ,20} ,3}  returns int 200.
+	(Fo <Seq
+		...
+	>)
+	//TODO names of constants, for when same axgob/fn/lambda has multiple parents when toStringing.
+	//Do I want name to be on the left name#(a b c) vs right (a b c)#name. Consider it happens recursively too ((a b)#nameAB c)#nameABC.
+	//[((a b)#nameAB c)#nameABC (M #nameAB d)]#nameOfList
+	//[((a b)NameAB c)NameABC (M NameAB d)]NameOfList
+	//[((a b)=NameAB c)=NameABC (M =NameAB d)]=NameOfList
+	//[((a b)NameAB c)NameABC 2.34NameABC 'a string'NameOfString aStringLiteralStartsWithLowercaseSoDoesntNeedQuotes (M NameAB d)]NameOfList
+	//Names must start with capital letter A-Z but can have any unicode after that if it lacks whitespace and is short string,
+	//leaving room for string literals that start with lowercase letter and numbers that start with . or 0-9 or -.
+	//Also should names be allowed to start with other symbols on keyboard such as + for int add vs I+? {,II+ {,II* ,10 ,20} ,3}
+
+	//FIXME what if theres a name in the (Seq [[a b c]NameOfABC d e]) how do u display those names in <Seq a b c d e>?
+	//I guess it would revert to (Seq [[a b c]NameOfABC d e])
+
+	{} and () are each replaced by (F U) aka identityFunc.
+	{b} and (b) are each replaced by b.
+	(b c) is normal lambda call, b called on c.
+	(b c d) is ((b c) d), and so on.
+	{a b} is (S a b).
+	{a b c} is {{a b} c}, and so on.
+	[] is Infcur.
+	[b] is (Infcur b).
+	[b c d e] is (Infcur b c d e).
+	<b c d e> is (b [c d e]).
+	,x is (T x).
+	,,x is (T (T x)) and so on.
+	hello is string 'hello'.
+	'hello world' is string 'hello world'.
+	2.34 is double 2.34.
+	2. is double 2.
+	2 is int 2.
+	-2 is int -2.
+	-2. is double -2.
+
+	FIXME need syntax for bitstrings, typed and primtNeutral/untyped, and for axgobs that have strange values of obij (the 4 ints per axgob).
+
+	FIXME need syntax for reading a var name in AVL tree, maybe also in (M key val key val) jsonlike (M ...) maps,
+	(Lz (C [funcbody x y z] valX valY valZ)) or is it written as (Lz (<C funcbody x y z> valX valY valZ))?
+	Do I want Lz vs LamNs Ns Treemap(as Ns) etc?
+	Do I want built in avl tree opcodes?
+
+	[axgobs that have strange values of obij (the 4 ints per axgob)]
+		include it just before the name somehow, except in cases theres a syntax for it like ab.cd.ef or something maybe that means what (Field (Field ab cd) ef) returns?
+		ab/cd/ef ?
+		(Seq [[a b c]NameOfABC d e])/cd/{,+ ,2 ,3}
+		(Seq [[a b c]NameOfABC d e])/cd#NameOfSeqCD/{,+ ,2 ,3}
+		But what if want to name cd (the string 'cd') AND name NameOfSeqCD? That syntax doesnt work.
+
+	Dont need to show o8 or curm except in leafs, and alot of those leafs will have names such as Pair S T Ax 234 .
+
+	Need to show primz and primt and maybe b/bize for typed arrays but could define a syntax for int[] and double[] and float[] literals etc.
+		d(...doubles...) ... d(d(2.34 3.45 2. 3.) d(5. 6. 7. 8.))
+		f(floats)
+		i(ints)
+		//s(same as {} aka sCurryList)
+
+
+	{,+ {,* ,10 ,20} ,3}
+	in wikibinator203 would have been written as <+ <* ,10 ,20> ,3> but axgob will use <> to mean something else.
+
+	How about g(hello world) as the string 'hello world'? 'g(' and ')' would be like the quotes. but then would have to escape parens.
+
+	a()Name1
+	b()Name2
+	c()
+	d()
+	etc as syntaxs.

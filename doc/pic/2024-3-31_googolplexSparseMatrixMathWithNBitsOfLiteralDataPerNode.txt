@@ -1,0 +1,122 @@
+Correct: down+up+(down*up+up*down+up*up)*(2**bitsOfLiteralDataPerNode)
+
+Formal-verified googolplex-sparse matrix math: mul=2**bitsOfLiteralDataPerNode; b = 0;c = mul; for(let i=0; i<=maxHeight; i++){ let up = c-b; let down = b; let nextC = down+up+mul*(down*up+up*down+up*up); console.log('i='+i+' b='+b+' c='+c+' nextC='+nextC); b = c; c = nextC; } };
+https://twitter.com/benrayfield/status/1774441165737038086/photo/1
+https://twitter.com/benrayfield/status/1774441165737038086
+
+Pair of these superexponential integers can be compared by Wikibinator203 GodelLessThan for log(log(x)) using down+up+(down*up+up*down+up*up)*(2**bitsOfLiteralDataPerNode) recursively. Compare is first by height, break ties by recurse 2 lefts (if not equal) else recurse 2 rights
+
+2024-3-31_googolplexSparseMatrixMathWithNBitsOfLiteralDataPerNode_b_bugFixedAfterBruteForceTesting.png
+
+fastComputeGoogolplexSparsityWithLiteralDataPerNode = (bitsOfLiteralDataPerNode,maxHeight)=>{ console.log('fastComputeGoogolplexSparsityWithLiteralDataPerNode('+bitsOfLiteralDataPerNode+','+maxHeight+')'); mul=2**bitsOfLiteralDataPerNode; b = 0; c = mul; for(let i=0; i<=maxHeight; i++){ let up = c-b; let down = b; let nextC = down+up+mul*(down*up+up*down+up*up); console.log('i='+i+' b='+b+' c='+c+' nextC='+nextC); b = c; c = nextC; } };
+testGoogolplexSparsityWithLiteralDataPerNode = (bitsOfLiteralDataPerNode,maxHeight)=>{
+	console.log('testGoogolplexSparsityWithLiteralDataPerNode('+bitsOfLiteralDataPerNode+','+maxHeight+')');
+	let mul = 2**bitsOfLiteralDataPerNode;
+	let map = {};
+	for(let i=0; i<mul; i++) map['leaf'+i] = true; //create leafs
+	for(let height=1; height<=maxHeight; height++){
+		let prevNodes = Object.keys(map);
+		for(let leftChild of prevNodes){
+			for(let rightChild of prevNodes){
+				for(let literalData=0; literalData<mul; literalData++){
+					let nodeFields = leftChild+'_'+rightChild+'_'+literalData;
+					let newOrExistingNode = Ap.sha256HexOfString(nodeFields);
+					map[newOrExistingNode] = true;
+				}
+			}
+		}
+		console.log('height<='+height+' numNodes='+Object.keys(map).length);
+	}
+};
+fastComputeGoogolplexSparsityWithLiteralDataPerNode(0,5);
+testGoogolplexSparsityWithLiteralDataPerNode(0,5);
+fastComputeGoogolplexSparsityWithLiteralDataPerNode(1,3);
+testGoogolplexSparsityWithLiteralDataPerNode(1,3);
+fastComputeGoogolplexSparsityWithLiteralDataPerNode(3,2);
+testGoogolplexSparsityWithLiteralDataPerNode(3,2);
+fastComputeGoogolplexSparsityWithLiteralDataPerNode(2,3);
+testGoogolplexSparsityWithLiteralDataPerNode(2,3);
+VM20:1 fastComputeGoogolplexSparsityWithLiteralDataPerNode(0,5)
+VM20:1 i=0 b=0 c=1 nextC=2
+VM20:1 i=1 b=1 c=2 nextC=5
+VM20:1 i=2 b=2 c=5 nextC=26
+VM20:1 i=3 b=5 c=26 nextC=677
+VM20:1 i=4 b=26 c=677 nextC=458330
+VM20:1 i=5 b=677 c=458330 nextC=210066388901
+VM20:3 testGoogolplexSparsityWithLiteralDataPerNode(0,5)
+VM20:18 height<=1 numNodes=2
+VM20:18 height<=2 numNodes=5
+VM20:18 height<=3 numNodes=26
+VM20:18 height<=4 numNodes=677
+VM20:18 height<=5 numNodes=458330
+VM20:1 fastComputeGoogolplexSparsityWithLiteralDataPerNode(1,3)
+VM20:1 i=0 b=0 c=2 nextC=10
+VM20:1 i=1 b=2 c=10 nextC=202
+VM20:1 i=2 b=10 c=202 nextC=81610
+VM20:1 i=3 b=202 c=81610 nextC=13320384202
+VM20:3 testGoogolplexSparsityWithLiteralDataPerNode(1,3)
+VM20:18 height<=1 numNodes=10
+VM20:18 height<=2 numNodes=202
+VM20:18 height<=3 numNodes=81610
+VM20:1 fastComputeGoogolplexSparsityWithLiteralDataPerNode(3,2)
+VM20:1 i=0 b=0 c=8 nextC=520
+VM20:1 i=1 b=8 c=520 nextC=2163208
+VM20:1 i=2 b=520 c=2163208 nextC=37435750810120
+VM20:3 testGoogolplexSparsityWithLiteralDataPerNode(3,2)
+VM20:18 height<=1 numNodes=520
+VM20:18 height<=2 numNodes=2163208
+VM20:1 fastComputeGoogolplexSparsityWithLiteralDataPerNode(2,3)
+VM20:1 i=0 b=0 c=4 nextC=68
+VM20:1 i=1 b=4 c=68 nextC=18500
+VM20:1 i=2 b=68 c=18500 nextC=1369000004
+VM20:1 i=3 b=18500 c=1369000004 nextC=7496644043808000000
+VM20:3 testGoogolplexSparsityWithLiteralDataPerNode(2,3)
+VM20:18 height<=1 numNodes=68
+VM20:18 height<=2 numNodes=18500
+
+waiting on height<=3... too big?
+
+
+
+===OLD and buggy (needed to start c=mul instead of c=1):===
+doc/pic/2024-3-31_googolplexSparseMatrixMathWithNBitsOfLiteralDataPerNode_a_nearlyCorrect.png
+
+TODO make all 2**96 nodes be valid but be nonhalting if
+Googolplex-sparse matrix math: bitsOfLiteralDataPerNode = 96; mul=2**bitsOfLiteralDataPerNode; b = 0;c = 1; for(let i=0;i<10;i++){ let up = c-b; let down = b; let nextC = down+up+mul*(down*up+up*down+up*up); console.log('i='+i+' b='+b+' c='+c+' nextC='+nextC); b = c; c = nextC; }
+
+bitsOfLiteralDataPerNode = 0; mul=2**bitsOfLiteralDataPerNode; b = 0; c = 1; for(let i=0; i<10; i++){ let up = c-b; let down = b; let nextC = down+up+mul*(down*up+up*down+up*up); console.log('i='+i+' b='+b+' c='+c+' nextC='+nextC); b = c; c = nextC; }
+VM762:1 i=0 b=0 c=1 nextC=2
+VM762:1 i=1 b=1 c=2 nextC=5
+VM762:1 i=2 b=2 c=5 nextC=26
+VM762:1 i=3 b=5 c=26 nextC=677
+VM762:1 i=4 b=26 c=677 nextC=458330
+VM762:1 i=5 b=677 c=458330 nextC=210066388901
+VM762:1 i=6 b=458330 c=210066388901 nextC=4.4127887745906175e+22
+VM762:1 i=7 b=210066388901 c=4.4127887745906175e+22 nextC=1.9472704769152963e+45
+VM762:1 i=8 b=4.4127887745906175e+22 c=1.9472704769152963e+45 nextC=3.7918623102659254e+90
+VM762:1 i=9 b=1.9472704769152963e+45 c=3.7918623102659254e+90 nextC=1.437821978001524e+181
+1.437821978001524e+181
+bitsOfLiteralDataPerNode = 8; mul=2**bitsOfLiteralDataPerNode; b = 0; c = 1; for(let i=0; i<10; i++){ let up = c-b; let down = b; let nextC = down+up+mul*(down*up+up*down+up*up); console.log('i='+i+' b='+b+' c='+c+' nextC='+nextC); b = c; c = nextC; }
+VM768:1 i=0 b=0 c=1 nextC=257
+VM768:1 i=1 b=1 c=257 nextC=16908545
+VM768:1 i=2 b=257 c=16908545 nextC=73190116868358400
+VM768:1 i=3 b=16908545 c=73190116868358400 nextC=1.371339061044214e+36
+VM768:1 i=4 b=73190116868358400 c=1.371339061044214e+36 nextC=4.814261300084805e+74
+VM768:1 i=5 b=1.371339061044214e+36 c=4.814261300084805e+74 nextC=5.933340637566523e+151
+VM768:1 i=6 b=4.814261300084805e+74 c=5.933340637566523e+151 nextC=9.012359967077968e+305
+VM768:1 i=7 b=5.933340637566523e+151 c=9.012359967077968e+305 nextC=Infinity
+VM768:1 i=8 b=9.012359967077968e+305 c=Infinity nextC=Infinity
+VM768:1 i=9 b=Infinity c=Infinity nextC=NaN
+NaN
+bitsOfLiteralDataPerNode = 96; mul=2**bitsOfLiteralDataPerNode; b = 0; c = 1; for(let i=0; i<10; i++){ let up = c-b; let down = b; let nextC = down+up+mul*(down*up+up*down+up*up); console.log('i='+i+' b='+b+' c='+c+' nextC='+nextC); b = c; c = nextC; }
+VM778:1 i=0 b=0 c=1 nextC=7.922816251426434e+28
+VM778:1 i=1 b=1 c=7.922816251426434e+28 nextC=4.9732323640978664e+86
+VM778:1 i=2 b=7.922816251426434e+28 c=4.9732323640978664e+86 nextC=1.959553324262937e+202
+VM778:1 i=3 b=4.9732323640978664e+86 c=1.959553324262937e+202 nextC=Infinity
+VM778:1 i=4 b=1.959553324262937e+202 c=Infinity nextC=Infinity
+VM778:1 i=5 b=Infinity c=Infinity nextC=NaN
+VM778:1 i=6 b=Infinity c=NaN nextC=NaN
+VM778:1 i=7 b=NaN c=NaN nextC=NaN
+VM778:1 i=8 b=NaN c=NaN nextC=NaN
+VM778:1 i=9 b=NaN c=NaN nextC=NaN
+NaN

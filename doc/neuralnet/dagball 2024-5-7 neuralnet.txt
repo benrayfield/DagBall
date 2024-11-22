@@ -1,0 +1,31 @@
+https://www.youtube.com/watch?v=4boQ9OvRz5U
+
+HubSpot CRM
+hubspot.com
+Sponsored
+0:30
+hubspot.com
+0:00 / 0:30
+Dagball 2024-5-7 recurrent sigmoid neuralnet with 22 nodes trained live in GPU shader (GLSL)
+Ben Rayfield
+15 subscribers
+Analytics
+Edit video
+Promote
+
+    
+    
+
+    
+  
+
+    
+    
+
+    
+  
+121 views  May 7, 2024
+My dagball/lib/Ap.js GPU programming language is used in the textarea on the left to define the neuralet. It does gradient descent with momentum and annealing automatically of whatever you type in there. By dragging around the icons, some bright and some dark, I shape the bright and dark areas. It does at least 1 training batch per video frame 1/60 second, sometimes around 6 batches per 1/60 second. This will in theory scale up to doing live neural qlearning in a GPU shader on tiny neuralnets and to fit many such neuralnets together to do bigger things, or at least to make the dagball game more curvy, bouncy, bendy, and fun.
+
+https://github.com/benrayfield/DagBall (not uploaded yet)
+Ben Rayfield

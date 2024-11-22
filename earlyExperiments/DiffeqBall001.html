@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3-Body Gravity Simulation</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; }
+        canvas { background: #000; display: block; }
+    </style>
+</head>
+<body>
+<canvas id="simulationCanvas"></canvas>
+<script>
+    const canvas = document.getElementById('simulationCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+	let rr = function(n){
+		return n*(Math.random()*2-1);
+	};
+
+    const bodies = [
+        { x: {p: canvas.width / 2 + rr(100), v: rr(10), dp: 0, dv: 0, kv: 0}, 
+          y: {p: canvas.height / 2 + rr(100), v: rr(10), dp: 0, dv: 0, kv: 0} },
+        { x: {p: canvas.width / 2 + rr(100), v: rr(10), dp: 0, dv: 0, kv: 0}, 
+          y: {p: canvas.height / 2+ rr(100), v: rr(10), dp: 0, dv: 0, kv: 0} },
+        { x: {p: canvas.width / 2 + rr(100), v: rr(10), dp: 0, dv: 0, kv: 0}, 
+          y: {p: canvas.height / 2 + rr(100), v: rr(10), dp: 0, dv: 0, kv: 0} }
+    ];
+
+    function updateState(state, dt) {
+        let [p, v, dp, dv, kv] = [state.p, state.v, state.dp, state.dv, state.kv];
+        let newV = (v + dv * dt) * Math.exp(-kv * dt);
+        let newP = p + dp * dt + newV * dt;
+        state.p = newP;
+        state.v = newV;
+        state.dp = 0;
+        state.dv = 0;
+        state.kv = 0;
+    }
+
+    function colorInteraction(b, c) {
+        // Placeholder for direct manipulation based on b and c's properties
+        // Simulate gravity by directly adjusting dv based on the distance
+        const dx = c.x.p - b.x.p;
+        const dy = c.y.p - b.y.p;
+        const distSquared = dx * dx + dy * dy;
+        const dist = Math.sqrt(distSquared) + 1; // Avoid division by zero
+        const force = 1000; // Simplify force calculation for visualization
+        const accel = force / distSquared;
+
+        b.x.dv += accel * dx / dist;
+        b.y.dv += accel * dy / dist;
+    }
+
+    function simulate() {
+        // Apply colorInteraction (gravity) between each pair
+        for (let i = 0; i < bodies.length; i++) {
+            for (let j = i + 1; j < bodies.length; j++) {
+                colorInteraction(bodies[i], bodies[j]);
+                colorInteraction(bodies[j], bodies[i]); // Mutual interaction
+            }
+        }
+
+        // Update state for all bodies
+        bodies.forEach(body => {
+            updateState(body.x, 0.1);
+            updateState(body.y, 0.1);
+        });
+
+        // Clear and redraw
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        bodies.forEach(body => {
+            ctx.beginPath();
+            ctx.arc(body.x.p, body.y.p, 20, 0, 2 * Math.PI);
+            ctx.fillStyle = 'white';
+            ctx.fill();
+        });
+
+        requestAnimationFrame(simulate);
+    }
+
+    simulate();
+</script>
+</body>
+</html>

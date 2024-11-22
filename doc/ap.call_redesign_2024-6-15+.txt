@@ -1,0 +1,66 @@
+apCallRedesignToFixJsVsGlslSpaghettiCode2024-6-15+
+
+In Ap.js theres Ap.Call (apc) that is returned by Ap.lazyEval(apeCode). This is a redesign of that to get rid of Ap.lang andOr *.preferCpu andOr *.compileToLang etc.
+
+Found a solution, but havent coded it yet. TODO look over this solution again to make sure its what I really want to do: See these farther below[[[
+New apc fields
+Fields to remove from apc
+Fields to remove from ape
+Global fields to remove from Ap
+New kinds of apc eval
+Changes to gpu codeMaker and cpucirc code generator
+]]]
+
+
+Theres 4 ways apc is used:
+** evalGpuMain - Computed in GPU. Reads parMem and bigMem. Tempvars loc. Returns Float32Array(apc.numGpuThreads*apc.floatsPerGpuThread). If outermost ape is a gpucpu, evals only its first of 2 childs. This should be compiled to glsl (todo, or optionally to webgpu, opencl, etc?).
+** evalCpuMain - Computed in CPU, but other than that (and different roundoff), same as evalGpuMain. This should be compiled to js (or todo webasm?). AS OF 2024-6-15 I HAVE NOT BEEN USING THIS. IT DOESNT WORK. ITS NOT NEEDED BUT IS LISTED ANYWAYS FOR MATH COMPLETENESS.
+** evanCpuMain - Computed in CPU. Same as evalCpuMain/evalGpuMain but returns only the first float. Has only 1 thread. This should be compiled to js (or todo webasm?).
+** evalCpuDiffeq - Reads parMem and bigMem. Tempvars loc. Returns dpos, dvel, dfriction, each as Float32Array(parlocMems+locparMems aka the overlapping parts of par and loc). Unlike evalGpuMain/evalCpuMain, if outermost ape is a gpucpu, does both childs, since it needs the first child for defining arrays and doing those first calculations to match what gpu does (except roundoff) then does second param to add into dpos, dvel, and dfriction which exist for all shared indexs in parlocMem and locparMem. This should be compiled to js (or todo webasm?).
+** UPDATE: New kinds of apc eval: evalGpuMain evalCpuDiffeq evalCpuDiffeqParloc evanCpuMain evanCpuMainParloc evalCpuDiffeqParloc.
+
+
+In some of those, the ape is normally modified, such as to change locparMems to parlocMems or to parMems, and such as adding a hdr array and copying fo it to y and x vars, and (return potenCirc$) etc. I might want a new mem type thats locparMem if in evalGpuMain or evalCpuMain, and is [parlocMem or parMem, todo which?] if in evalCpuDiffeq or evanCpuMain, but thats likely to break more things where ive coded in dagball that par and loc have to be the same size.
+
+I want to make small redesigns to Ap.js that make it easy to use the same ape in multiple ways, such as a cpucirc that has a gpucpu would do both evanCpuMain (many times per physics cycle) and evalCpuDiffeq (once per physics cycle). I want to do that from the same Ap.Call. Similarly, I want a gpucirc that has gpucpu to do evalGpuMain (once per physics cycle) and evalCpuDiffeq (once per physics cycle). So basically, cpucirc does the main in evanCpuMain, and gpucirc does the main in evalGpuMain, and if the ape is a gpucpu then either way it also does evalCpuDiffeq.
+
+I need just these 3 kinds: evalGpuMain, evanCpuMain, evalCpuDiffeq.
+
+Reduce params in evanCpuMain to only have par big, and loc. No dpos dvel dfriction trmin trmax.
+
+Add arrays to evalCpuDiffeq: trmin and trmax, like the min and max that axgob truncates stuff to, and if max<m in then that has no effect for that index.
+Remove the vel array from evalCpuDiffeq and from Ap.Call fields?
+
+I want all 3 of those compiled forms cached (lazyEval the compiling) in the same Ap.Call.
+
+I want unnecessary constants not to be generated, since it slows down evanCpuMain as Im seeing FPS of 40 instead of 60 sometimes.
+
+I want apc.code and apc.beforeCode moved out of apc cuz multiple compiled codes ar needed for same ape.
+I want the ape transforms (adding hdr and setting y$ x$ etc) redesigned somehow so I dont need 2 apcs per cpucirc that has gpucpu, one apc for evanCpuMain and one apc for evalCpuDiffeq. And similar for gpucirc with gpucpu I dont want to use 2 apcs per gpucirc, one for evalGpuMain and one for evalCpuDiffeq (needs locparMems changed to parlocMems or parMems).
+I think some of that duplication led me to code evalCpuDiffeq at first by creating glsl code then transforming it by string replacements to js, but it didnt work in some cases. Then I tried to do it as pure js and the code got tangled, leading to this apCallRedesignToFixJsVsGlslSpaghettiCode2024-6-15+ planned redesign.
+evalCpuDiffeq is only run once per physics cycle per circ, at position (0,0), so it doesnt need the gradient code that copies par to loc and adds epsilon to 1 of the dims. So both evalCpuDiffeq and evanCpuMain can be modified 
+Lets put hdr and the code to set y$ x$ etc from it in gpu code and cpu code. Its so far 2024-6-15 only added to cpu code.
+
+I can do one of these: [[[make the new kind of mem, maybe call it cpuMem for now, that means locparMem in evalGpuMain, means [parlocMem or parMem, todo which? parMem would make it hard to match between cpu and gpu cuz loc would be smaller than the number of shared dims, else its parlocMem and would waste that area of loc] in evalCpuDiffeq and evanCpuMain]]] OR {{{ I can add evanCpuMainParloc, evanGpuMainPar, and keep the evanGpuMain by itself to not modify the ape. This would be same indexs in the arrays if changing locparMems to parlocMems, but would change those indexs if changing locparMems to parMems. If I change the indexs, it has to be a new apc. }}} OR <<< Make multiple apc for 1 circ in some cases, which means its state as the par Float32Array will have to be copied/synced. >>>.
+...
+I want just 1 apc per circ, and multiple compiling for each of them. So redesign apc to allow multiple apes as long as they have the same array indexs. They can differ by locparMem vs parlocMem but cant change locparMem to parMem. If you want to change locparMem to parMem, you can but have to do it in a different apc.
+Cant add hdr either, unless its there in both cases. Make it always be there.
+Therefore, I want a second ape to be lazyEvaled which has converted all locparMems to parlocMems, and there will be 5 ways of calling it, instead of 3. The extra 2 are evanCpuMainParloc and evalCpuDiffeqParloc. The original 3 are evalGpuMain, evalCpuDiffeq, and evanCpuMain. With these 5 I will have at most 1 apc per circ.
+Also in evanCpuMainParloc and evalCpuDiffeqParloc, I want it NOT to set the shared range of loc to 0s since that should not be read, though it might be, so make that an apc bit field.
+
+New apc fields:
+* bit inEvaParloc_fillLocWithAll0sRightAfterCreate.
+* ape apeParloc.
+
+Fields to remove from apc: beforeCode, code, compileToLang, preferCpu.
+
+Fields to remove from ape: preferCpu.
+
+Global fields to remove from Ap: Ap.lang.
+
+New kinds of apc eval: evalGpuMain evalCpuDiffeq evalCpuDiffeqParloc evanCpuMain evanCpuMainParloc evalCpuDiffeqParloc.
+
+Changes to gpu codeMaker and cpucirc code generator:
+* include hdr as parlocMem, and code that copies from it to y$ x$ etc, but do it by modifying ape, and make a variant of Ap.lazyEval that returns ape (likely already is one) instead of returns apc (Ap.Call) where apc.ape is that ape.
+
+ 

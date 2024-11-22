@@ -1,0 +1,58 @@
+Ive added an isNaN op to my "ape"/Ap.js GPU language.
+
+This says not nan:
+ape:
+(do
+	{abc locparMem (5)}
+	<{n float} 0>
+	<{a float} (locPtr abc 4%99)>
+	<{ret float} (+ .2 (sin (* (+ x$ a) y$ 33)))>
+	<n a>
+	<potenCirc$ (?: (isNaN n) 1 -1)>
+)
+
+this says not nan:
+ape:
+(do
+	{abc locparMem (5)}
+	<{n float} 0>
+	<{a float} (locPtr abc 4%99)>
+	<{ret float} (+ .2 (sin (* (+ x$ a) y$ 33)))>
+	<n x$>
+	<potenCirc$ (?: (isNaN n) 1 -1)>
+)
+
+this says nan:
+ape:
+(do
+	{abc locparMem (5)}
+	<{n float} 0>
+	<{a float} (locPtr abc 4%99)>
+	<{ret float} (+ .2 (sin (* (+ x$ a) y$ 33)))>
+	<n (+ x$ a)>
+	<potenCirc$ (?: (isNaN n) 1 -1)>
+)
+
+this says nan:
+ape:
+(do
+	{abc locparMem (5)}
+	<{n float} 0>
+	<{a float} (locPtr abc 4%99)>
+	<{ret float} (+ .2 (sin (* (+ x$ a) y$ 33)))>
+	<n (- x$ a)>
+	<potenCirc$ (?: (isNaN n) 1 -1)>
+)
+
+this says nan:
+ape:
+(do
+	{abc locparMem (5)}
+	<{n float} 0>
+	<{a float} (locPtr abc 4%99)>
+	<{ret float} (+ .2 (sin (* (+ x$ a) y$ 33)))>
+	<n ret>
+	<potenCirc$ (?: (isNaN n) 1 -1)>
+)
+
+So the vars "a" and "x$" are not themselves nan but the + and - of them together are nan.

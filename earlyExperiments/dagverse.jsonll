@@ -1,0 +1,52 @@
+{
+	"$":"DV$56734jrfgtfghbfgh46GDFG45656",
+	"me":["hello blah4we5"]
+}
+
+"(sig$ ED$dfgkjdfg345456dfgcdxfgdfgsdfg (17005464562543 DV$56734jrfgtfghbfgh46GDFG45656) B$sdfdfgdfgdfg3435345cfdfgDFGDFG435345345dfgdfgdfgdfg43e54356435dfg)"
+
+"(hello this is just (some words) and a DV$56734jrfgtfghbfgh46GDFG45656 key)"
+
+{
+	"$":"DV$098435098324576346094856435345dfdgd435", He:34, MxC:208,
+	ch:[
+		"DV$56734jrfgtfghbfgh46GDFG45656",
+		"(sig$ ED$dfgkjdfg345456dfgcdxfgdfgsdfg (DV$56734jrfgtfghbfgh46GDFG45656 17005464562543) B$sdfdfgdfgdfg3435345cfdfgDFGDFG435345345dfgdfgdfgdfg43e54356435dfg)",
+		"((hello this is just (some words) and a DV$56734jrfgtfghbfgh46GDFG45656 key)"
+	],
+	me:{}
+}
+
+"(TODO make the avl-like tree with num dims per node and separate avllike tree for number values so can stream high dimensional vectors. dagvec_keyLeaf dagvec_valLeaf dagvec_keyBranch dagvec_valBranch (dagvec_vec (has a key node and a val node)))"
+
+"(TODO If you get a copy of a jsonll file you would in theory be able to replay, like a recording, a whole 100 player game of dagball and continue the game on alternate timelines by appending to another jsonll file ... you'll be able to put any json in it. theres just a few things it does automatically around that, tracking DAG height, making id by hashing, etc)"
+
+"(TODO Its near time to accelerate json DAG streams. For too long web3 has been incredibly laggy, so u cant run games directly on it. By putting DAG nodes into many parallel streams that partially overlap immutable data, with content-addressable auto generated ids, the swarms will come. --I said 2024-2-16 in https://twitter.com/benrayfield/status/1759046861514510502)"
+
+"(My opensource json DAG streams will be general enough for many apps to build on it. I will use it to scale a few of my apps first, but then those same networks can expand to any number of gaming-low-lag apps. Web3 has been incredibly laggy. I think Ive found a way to fix it. --I said 2024-2-17 in https://twitter.com/benrayfield/status/1759054091819352326)"
+
+FIXME how can i store pubkey->param->newest_pubkeyParamTimeRetSig, considering that param and ret may each be [...] instead of just a 'DV$...',
+though maybe i should just use the normedJson string form, and as an optimization i could replace its prototype with one that has toString
+to cache the normedJson string form and return that.
+["idHeGctChMe","DV$myId",He,GcT,[...ch...["idHeGctChMe","DV$myId",He,GcT,[...ch...],{...me...}],[...],'g$hello'],{...me...}]
+
+x = ["idHeGctChMe","DV$myId",5,3453453,[],{}]
+(6) ['idHeGctChMe', 'DV$myId', 5, 3453453, Array(0), {…}]
+x+''
+'idHeGctChMe,DV$myId,5,3453453,,[object Object]'
+p = {};
+{}
+Object.setPrototypeOf(x,p)
+(6) ['idHeGctChMe', 'DV$myId', 5, 3453453, Array(0), {…}]
+p.toString = function(){ if(!this.toString_) this.toString_ = JSON.stringify(this); return this.toString_; };
+ƒ (){ if(!this.toString_) this.toString_ = JSON.stringify(this); return this.toString_; }
+ondemand.Dropdown.2dcf271a.js:1 [Violation] 'requestAnimationFrame' handler took 62ms
+x+''
+'["idHeGctChMe","DV$myId",5,3453453,[],{}]'
+x
+(6) ['idHeGctChMe', 'DV$myId', 5, 3453453, Array(0), {…}, toString_: '["idHeGctChMe","DV$myId",5,3453453,[],{}]']
+
+
+["idHeGctChMe","DV$myId",He,GcT,[...ch...],{...me...}]
+
+["pubkeyParamTimeRetSig","ED$f1apakv5jlZzAQ3X2yyPgYTWskbGCSWAKAhZQMbvu5g","x$wikib$43OfBase64DigitsOf256BitId",1708276369632541,"DV$f1apakv5KlZzAQ6X2yyPgYTWskbGCSWAKAhZQMbvu5g","g$kjsefrkjxvksdfSDFDSAFASDf34345xdsfSDFSDF34sxdfSDFsd3245345sdxfSDFDFSGsadf342324sdfsdfs"]
